@@ -1,0 +1,1890 @@
+{159}  -*-  mode: text; fill-column: 50;  -*-
+[0:
+
+Wed May 31 10:48:54 2023 OK, trying to whack up a
+minimal 'streamdack' customized to my own needs.
+
+Questions:
+ - Can obs-cli control downstream keyer?
+ - What understanding would that take?
+
+:0]
+[1:
+
+Wed May 31 11:11:23 2023 I see a DSK commit "Add
+obs-websocket actions" from Nov 20, 2022[3:
+
+Wed May 31 12:12:36 2023 How do I tell what
+version of DSK I'm running?
+
+:3]
+[2:
+
+Wed May 31 11:31:10 2023 So IIRC obs-cli or
+something had higher-level 'convenience forms' for
+some things but there might be access to
+lower-level stuff that could be understood.
+
+:2]
+:1]
+[4:
+
+Wed May 31 12:17:59 2023 So I have
+/data/ackley/PART4/code/D/obs-cli
+which contains an
+
+  -rwxrwxr-x  1 ackley ackley 11173425 May  4 13:07 obs-cli
+
+which md5sum matches
+
+/data/ackley/AV/OBS2021/assets/obs-cli/obs-cli
+
+which is what
+
+/data/ackley/AV/OBS2021/assets/obs-cli/xdoc
+
+calls, and xdoc is what
+
+~/.streamdeck_ui.json
+
+calls.
+
+:4]
+[5:
+
+Wed May 31 13:20:47 2023 OK, so I thought I was
+going to have to use downstream keyer to overlay
+my (e.g.) self-image press-to-show popups, but now
+I think maybe not. For two reasons:
+
+1. Each DSK can only be displaying one scene (it
+   seems), so if we want dozens of possible popups
+   we'd be talking dozens of DSKs
+
+2. We could use nested scenes instead (which
+   appear to work at this point, although I feel
+   like I ran into trouble with them before. Then
+   we can show or hide as many sources as we want
+   within a scene that is then nested inside
+   whatever other sce
+
+..wait. We can just have a single DSK (for this),
+and put the ts-POPUPS scene inside that, and then
+it will overlay on everything.
+[6:
+
+Wed May 31 13:56:46 2023 So we can do this just
+with existing obs-cli functionality. So that means
+our focus shifts back to our streamdack
+functionality..
+
+Do we want to go with JSON for config? Or perhaps
+a more compact hackola format that streamdack can
+load on request and save as JSON for us?
+
+We'd like to specify
+
+ - Image and command on key up
+ - Image and command on key down
+ - Perhaps support for animated .gifs as an
+   image.
+
+But oh yeah, we'd also like to support "pages" a
+la streamdeck-ui, and that requires some kind of
+dict. So we have to face data structures at least
+a little.
+
+(EVENT, ACTIONS)
+
+EVENT:
+ - key X up
+ - key X down
+ - period D expired (registered to wall clock)
+ - delay D elapsed (unregistered)
+
+ACTIONS:
+ (ACTION, ACTION, ..)
+
+ACTION:
+ - Run shell command CMD
+ - Switch to page PG
+ - Set image IMG on panel P
+ - Run event EVT after DELAY
+ - Show or hide panel P
+
+[7:
+
+Wed May 31 14:36:18 2023 Which suggests we might
+think in terms of 'panels' rather than 'pages',
+allowing us to stack partial panels and search up
+the stack for event handlers and such.
+
+But we don't want to be redisplaying the same
+images over and over like it a traditional dumb
+window system.. so we'd need a 'dirty bit' or the
+like, per key.
+
+:7]
+
+
+:6]
+
+:5]
+[8:
+
+Thu Jun  8 10:44:14 2023 OK we're past
+t2sup3140. Actually, really need to push the
+ComputingUp.. Then can come back here..[9:
+
+Thu Jun  8 11:58:44 2023 OK we're
+back. ComputingUp #67 releasing now.[10:
+
+Thu Jun  8 12:24:40 2023 So. How can we get
+organized here for some implementation?
+
+How do do like modules in python?
+
+Can we set any design ground rules here?
+
+[11:
+
+Thu Jun  8 12:31:21 2023 Ground rules:
+
+ - Don't Block The Priority Queue
+   = Anything that fires off an external command
+     needs to be on its own thread
+   = We will demand that updates to internal data
+     structures - panel visibility and stuff -
+     must be fast enough to run on the PQ thread.
+
+[12:
+
+Thu Jun  8 12:44:07 2023 What do objects look like
+in python?
+[13:
+
+Thu Jun  8 12:58:10 2023 OK, looking at the
+RealPython.com OOP tutorial..
+
+Let's try OOPing the priority queue to get us
+started. [14:
+
+Thu Jun  8 12:59:25 2023 Call it
+EventQueue. Containing Events.
+
+:14]
+
+:13]
+:12]
+
+:11]
+
+:10]
+
+:9]
+
+:8]
+[15:
+
+Thu Jun  8 13:04:36 2023 OK so we did the setup.py
+thing and the 'pip install -e ./code/' thing and
+now we see
+
+    ackley@lcf5820:/data/ackley/PART4/code/D/python-streamdeck/python-elgato-streamdeck$ streamdack
+    hewo bongo
+    ackley@lcf5820:/data/ackley/PART4/code/D/python-streamdeck/python-elgato-streamdeck$ 
+
+:15]
+[16:
+
+Thu Jun  8 13:20:56 2023 OK we've started
+importing PQ stuff into EventQueue. I think we're
+saying that EQ.mainLoop() is going to own the main
+thread (whatever python calls the startup thread.)
+[17:
+
+Thu Jun  8 13:27:51 2023 OK now we have EQ running
+the one-second clock event again. Are we going to
+continue with passing a function argument as the
+think to execute, or are we going to make some
+kind of API for that?
+
+Maybe we should have an Event API.[18:
+
+Thu Jun  8 13:47:48 2023 Putting class Event in
+EventQueue.py because multiple classes per file is
+Pythonic (TM) according to swe stackexchange.
+
+How do we do pure methods in python?[19:
+
+Thu Jun  8 13:49:55 2023 @abstractmethod? [20:
+
+Thu Jun  8 14:02:17 2023 OK now we have
+@abc.abstractmethod .. abs seems not quite so
+clean as some of the other python artillery..[21:
+
+Thu Jun  8 14:08:10 2023 OK now we have class
+ClockEvent running every second on the event
+queue. [22:
+
+Thu Jun  8 14:11:01 2023 Perhaps we could try for
+a generic Event subclass to run a shell command on
+a  thread? That would be a big step.
+[23:
+
+Thu Jun  8 14:24:40 2023 OK it seems we now have a
+ThreadEvent class used like this
+
+    class SleepEvent(ThreadEvent):
+        def threadRun(self,eq,now,dead):
+            print("SLEEPEV "+str(now))
+            eq.sleep(4)
+            print("SLEEPEZ "+str(eq.now()))
+
+that doesn't block the EQ:
+
+    hewo bongo EQ:ZONG
+    hewo bingo EQ:ZONGDONG
+    660506.086931401 executed at 660506.089466297 delay 0.0025348959024995565
+    660507.089533663 executed at 660507.092179573 delay 0.002645910019055009
+    SLEEPEV 660508.095160182
+    660508.092243779 executed at 660508.095579644 delay 0.003335864981636405
+    660509.095663548 executed at 660509.098490353 delay 0.002826804993674159
+    660510.098555211 executed at 660510.101127796 delay 0.002572585013695061
+    660511.101207204 executed at 660511.103717129 delay 0.002509924932383001
+    SLEEPEZ 660512.097162777
+    660512.103785507 executed at 660512.106333073 delay 0.002547565964050591
+    660513.106390451 executed at 660513.111204942 delay 0.004814491025172174
+
+so let's try for a shell command runner.[24:
+
+Thu Jun  8 14:26:55 2023 Now, here'a question,
+though. That SleepEvent doesn't reschedule itself,
+so it avoids the issue of modifying the eq.. but
+how are we supposed to do that, actually? Some
+'with' thing?
+[25:
+
+Thu Jun  8 14:30:19 2023 threading.Lock() is
+mentioned. Let's see how the streamdeck library
+does like 'with deck:' and not 'with deck.lock:'
+or whatever..[26:
+
+Thu Jun  8 14:32:48 2023 Ah: There are
+
+    def __enter__(self):
+
+and
+
+    def __exit__(self, type, value, traceback):
+
+methods that are apparently called by 'with'.
+[27:
+
+Thu Jun  8 14:38:05 2023 OK 'with eq:' appears to
+not instantly break, and be at least a little
+sensible, like this:
+
+    class SleepEvent(ThreadEvent):
+        def threadRun(self,eq,now,dead):
+            print("SLEEPEV "+str(now))
+            eq.sleep(4)
+            print("SLEEPEZ "+str(eq.now()))
+            with eq:
+                eq.runIn(3,self)
+
+In particular, ^C during the eq.sleep blocks until
+the SLEEPEZ prints, while python bails quickly on
+^C before the next SLEEPEV, suggesting the threads
+are cleaning up.. right?
+[28:
+
+Thu Jun  8 14:40:45 2023 OK now, a shell command,
+come on.[29:
+
+Thu Jun  8 14:53:57 2023 OK we have ShellEvent
+that takes a list of args (including the command)
+and runs them in a shell when the event
+executes. So
+
+        shelly = ShellEvent("DemoShell","ls","-a", "-l");
+
+contributes to like
+
+    662266.801919503 executed at 662266.805039489 delay 0.003119985922239721
+    662267.805097766 executed at 662267.811272413 delay 0.006174647016450763
+    SHEELEV 662268.815581814
+    662268.81135753 executed at 662268.816476159 delay 0.005118629080243409
+    total 156
+    drwxrwxr-x 8 ackley ackley  4096 Jun  8 12:59 .
+    drwxrwxr-x 3 ackley ackley  4096 May 30 21:20 ..
+    -rw-rw-r-- 1 ackley ackley  4555 May 30 16:58 CHANGELOG
+    drwxrwxr-x 4 ackley ackley  4096 Jun  8 14:53 code
+    drwxrwxr-x 3 ackley ackley  4096 May 30 16:58 doc
+    -rw-rw-r-- 1 ackley ackley   936 May 30 16:58 .drone.yml
+    -rw-rw-r-- 1 ackley ackley 85365 May 30 16:58 ExampleDeck.jpg
+    drwxrwxr-x 8 ackley ackley  4096 Jun  8 14:32 .git
+    drwxrwxr-x 3 ackley ackley  4096 May 30 16:58 .github
+    -rw-rw-r-- 1 ackley ackley    54 May 30 16:58 .gitignore
+    -rw-rw-r-- 1 ackley ackley   922 May 30 16:58 LICENSE
+    -rw-rw-r-- 1 ackley ackley   139 May 30 16:58 MANIFEST.in
+    drwxrwxr-x 2 ackley ackley  4096 Jun  8 14:40 notes
+    -rw-rw-r-- 1 ackley ackley  2722 May 30 16:58 README.md
+    -rw-rw-r-- 1 ackley ackley    14 May 30 16:58 requirements.txt
+    -rw-rw-r-- 1 ackley ackley   680 May 30 16:58 setup.py
+    drwxrwxr-x 5 ackley ackley  4096 May 31 05:11 src
+    -rw-rw-r-- 1 ackley ackley     6 May 30 16:58 VERSION
+    SHEELEZ CompletedProcess(args=['ls', '-a', '-l'], returncode=0)
+    SLEEPEV 662269.824802139
+    662269.821853124 executed at 662269.825129504 delay 0.0032763800118118525
+    662270.825193689 executed at 662270.82893458 delay 0.0037408909993246198
+
+[30:
+
+Thu Jun  8 15:11:07 2023 So OK, that was a pretty
+good run. Time to break for a while.
+
+Some possible next time TODO:
+
+[53: Sun Jun 11 00:20:37 2023
+DONE :53] - Review eq11 and plan a streamdeck integration
+
+[54: DONE  :54] - Make a DeckEvent class (on the main thread)
+
+[55: DONE  :55] - Maybe make a ThreadedDeckEvent too?
+
+[56: DONE  :56] - Rough out a Panel abstraction using our new
+   python class knowledge
+
+[95: DONE  :95] - Make a master stack of panels
+
+[153: DONE  :153] - Support 'redrawing' the stack - perhaps in some
+   double-bufferish way to avoid re-downloading
+   everything - when things might have changed.
+
+[154: DONE  :154] - Make a RenderPanelsEvent that runs at maybe
+   10Hz? 
+
+[155: DONE  :155] - So we need some kind of streamdeck Button
+   abstraction that allows us to fluff over
+   multiple streamdecks
+
+[156: DONE  :156] - Eventually have a config file allowing multiple
+   streamdecks to be assigned global button
+   coordinates so one could - if one wanted - have
+   a single panel that stretches across multiple
+   streamdecks.. 
+
+:30]
+:29]
+
+:28]
+:27]
+:26]
+
+:25]
+:24]
+
+:23]
+:22]
+
+:21]
+
+:20]
+
+:19]
+
+:18]
+
+
+:17]
+
+:16]
+[31:
+
+Fri Jun  9 00:23:07 2023 OK, so, starting into
+Panel. What is our underlying representation of
+the streamdeck buttons, which in effect are the
+'pixels' in the model we're using.[32:
+
+Fri Jun  9 01:17:27 2023 I guess we want a Screen
+abstraction that the panels get drawn onto. Then
+streamdecks get configured into positions on the
+Screen, and the screen maintains double-buffer
+entries for each 'pixel', and rendering blasts
+through the pixels and updates new->current for
+each changed pixel.[33:
+
+Fri Jun  9 09:18:26 2023 OK, after morning
+meeting.
+
+Made class Screen and class ScreenArray, with the
+latter to represent a collection of buttons
+associated with one streamdeck.
+
+Screen has
+
+        self.arrays = []     # for ScreenArray's
+
+but we also want a per-'pixel' representation? I
+think so. I was thinking it would be fun and
+'clean' to allow overlapping ScreenArrays, in
+which case the same pixel would get displayed in
+multiple places and could be triggered from any
+displayed location. (Probably too silly,
+especially because then there could be multiple
+Press events in a row on a pixel with no
+intervening Release. Anyway.)
+
+[34:
+
+Fri Jun  9 09:31:53 2023 Also need to start
+thinking about a config file representation.. If
+it's not going to be json..[35:
+
+Fri Jun  9 09:33:57 2023 How about 'TOML'? That
+looks about like what I was imagining. How do we
+TOML in python?[36:
+
+Fri Jun  9 09:45:51 2023 OK and we had to do a
+'pip install tomli' but now we are parsing
+foo.toml successfully.
+
+[37:
+
+Fri Jun  9 09:48:57 2023 Hmm but ugh apparently we
+have arrived at our python frontier - it appears
+that 'import tomllib' is standard in 3.11.. but we
+are running 3.8.10..
+
+:37]
+
+:36]
+
+:35]
+
+:34]
+
+:33]
+
+:32] 
+
+:31]
+[38:
+
+Fri Jun  9 11:08:48 2023 OK and now just spent
+what an hour or something on 'packaging hell' with
+setup.py and pyproject.toml and pip uninstall and
+barf barf barf. Barf barf barf and barf some more.
+
+But now it appears that we're running again, now
+in /data/ackley/PART4/code/D/streamdack/ instead
+of under python-elgato-streamdeck/, and
+
+ackley@lcf5820:/data/ackley/PART4/code/D/streamdack$ pip install -e .
+
+and then
+
+ackley@lcf5820:/data/ackley/PART4/code/D/streamdack$ streamdack
+
+appears to work so we'll see how it goes.
+
+[39:
+
+Sat Jun 10 03:03:54 2023 Well so I'm really
+struggling with the lack of unquoted keywords as
+values in TOML. I was intending to be defining
+lots and lots of names - for buttons, for event
+sequences - and then populate panels by giving
+lists or arrays of names. But in TOML all those
+names would either have to be numbers, or be
+explicitly quoted one by one.
+
+[40:
+
+Sat Jun 10 03:25:38 2023 ConfigObj seems not too
+bad, but it's more non-standard, and appears to be
+currently in a between-maintainers condition. It
+allegedly supports comments-preserving rewriting
+out of the box which would be nice if we end up
+putting a GUI in front of streamdack.
+
+Or go with configparser, I guess.
+
+[41:
+
+Sat Jun 10 03:40:30 2023 But if we're going to
+have a GUI (we're not) we could just use JSON or
+whatever as the file format.
+[42:
+
+Sat Jun 10 09:11:29 2023 Well, I tried ConfigObj,
+and it just misses on too many of my expectations
+:(. The biggest problem, I think for me, is that
+it seems list values can't span multiple lines, so
+there's no good way to do '2D arrays' like:
+
+ layout = [ [ aaa, bbb, ccc, ddd ],
+            [ fff, ggg, eee, fff ],
+          ]
+ orthis = [ aaa, bbb, ccc, ddd ,
+            fff, ggg, eee, fff ,
+          ]
+ oreven =  aaa, bbb, ccc, ddd , \
+           fff, ggg, eee, fff ,
+          
+which I wanted for like assigning buttons to
+panels.
+
+Let's take a look at ConfigParser..
+ [43:
+
+Sat Jun 10 09:28:44 2023 Man you know toml was so
+close, compared to ConfigObj.. Could I figure out
+some hideous hack to preprocess the cfg file with
+regexes or something, to quote barewords myself,
+before feeding it to toml?[44:
+
+Sat Jun 10 09:34:23 2023 Or hack toml itself? It
+kind of looks like there's a "fairly obvious"
+place in parse_value(..), in its _parser.py, we
+could intervene with an extra regex and such to
+support 'classic variable names' with leading
+alpha followed by alphanum+_ or whatever.
+
+How could we lift the toml code into our space for
+hackability? (What's the toml license?)[45:
+
+Sat Jun 10 09:41:01 2023 (MIT License)
+
+:45][46:
+
+Sat Jun 10 09:46:28 2023 There's also 'TOML Kit',
+that supports rewriting and preserving
+comments.. (But not barewords.)
+
+:46]
+
+:44]
+
+:43]
+:42]
+:41]
+
+:40]
+
+:39]
+:38]
+[47:
+
+Sat Jun 10 10:26:27 2023 Well it appears I have
+forked hukkin/tomli as DaveAckley/tomlikey, and
+hacked on it sufficiently that stuff like
+
+    gong=true
+    illf=nan
+    zong=bong
+    decks=[AL22K, DL13L]
+
+produces stuff like
+
+    {'gong': True, 'illf': nan, 'zong': 'bong', 'decks': ['AL22K', 'DL13L']}
+
+[48:
+
+Sat Jun 10 10:42:26 2023 And in particular, turns
+like this:
+
+    layout=[ [ toroot, blank, blank, jump, float ],
+             [ blank,  clams, fooba, run,  skip  ],
+             [ blank,  blank, gah,   pop,  vid12 ],
+           ]
+
+into like this:
+
+    'layout': [['toroot', 'blank', 'blank', 'jump', 'float'], ['blank', 'clams', 'fooba', 'run', 'skip'], ['blank', 'blank', 'gah', 'pop', 'vid12']]
+
+and I think I could live with that. Since the
+concept is that buttons will (typically at least)
+be labeled, having a 'varname' for each button
+seems reasonably reasonable. 
+
+[49:
+
+Sat Jun 10 10:44:56 2023 So, let's accept this
+provisionally and get back to design for events
+and buttons and stuff.
+
+Let's think about EVENTS. We want a button press
+or release to be able to trigger a sequence of
+ACTIONS. We will also have purely time-based
+EVENTS; they don't have to be tied to a button
+change. Right?
+
+So we already have the EventQueue stuff set up. 
+
+So maybe an ACTION is a sequence of EVENTs?
+
+And a button change is a TRIGGER for an ACTION?
+
+Be nice maybe to have some interpolation on our
+action definitions. STOP IT STOP THAT RIGHT NOW.
+
+What kind of EVENTs will we have
+
+ - Set IMAGE on BUTTON
+ - Run shell COMMAND
+ - Change PANEL properties e.g. visibility, layout
+ - Schedule an EVENT after a DELAY
+ - Schedule an EVENT at next multiple of INTERVAL
+ - Render display
+ - Write message to log file
+ - Change streamdack parms e.g. debugging
+
+[50:
+
+Sat Jun 10 11:07:29 2023 Well that seems like
+plenty.
+
+[event.setImage.foo]
+[51:
+
+Sat Jun 10 11:12:52 2023 If we do it like
+
+    [event.setImage.slidesnme10]
+      on=slidesnme
+      image='zongbing.png'
+
+    [event.setImage.slidesnme11]
+      on=slidesnme
+      image='invertzongbing.png'
+
+then we'll have, in effect, separate namespaces
+for all setImage events, which means we'd have to
+know we're dealing with a setImage before we could
+lookup a name. Vs perhaps
+
+   [event.setImage_slidesnme11]
+      on=slidesnme
+      image='invertzongbing.png'
+
+or
+
+   [event.slidesnme11_setimage]
+      on=slidesnme
+      image='invertzongbing.png'
+
+or something.
+
+Now it seems like we'd like to have drive-by
+events also, because we're getting pretty
+low-level here, so we could do something like
+
+[action.boggleslidenme]
+ sequence = [ [event on=slidesnme image='boggle.png'],
+              [delay for=500],
+              [event on=slidesnme image='slidesnme.png'], ]
+
+without having to create names for the boggle step
+and so forth
+[52:
+
+Sat Jun 10 23:57:06 2023 OK let's get to hackable
+on something here.
+[57:
+
+Sun Jun 11 00:21:18 2023 Claimed some to-dos.
+
+So pretty urgently now we need a command format of
+some kind. It's gross but I'm thinking of lists
+for 'function calls' with only positional notation
+for arguments.
+
+A 'named action' uses a section and keyval pairs:
+
+    [action.boggle_slidesnme]
+     type=setimage
+     destination=slidesnme
+     image="boggle.png"
+ 
+which can also be expressed as an inline action as
+
+ [action, setimage, slidesnme, "boggle.png"]
+
+which can then be assigned to a panel.[58:
+
+Sun Jun 11 00:35:08 2023 I said 'panel' there
+because I was imagining that a 'button' was like a
+1x1 panel, and we'd do stacking and visibility
+all in terms of panels. But that would also imply,
+going the other way, that we'd somehow be able to
+handle events somehow merged across panels rather
+than associated only with buttons.
+
+But we're running out of time we're willing to
+assign to this little project and we need to get
+concrete. And if we say events are handled only by
+buttons - but the associated actions can affect
+panel visibility and whatever - things are
+simpler.
+
+I think we could start out assigning images only
+to buttons but be able to expand to panels later,
+if buttons and panels were in the same namespace.
+
+I wonder if it might not be horrible to assign a
+'depth' to each panel, rather than a 'parent'
+[59:
+
+Sun Jun 11 01:24:45 2023 How much are we going to
+emphasize a 'page' abstraction like in
+streamdeck-ui? Have a radio group concept to
+select a panel with a single action?[60:
+
+Sun Jun 11 01:45:07 2023 It could be you 'display'
+a panel and that means rendering starts there and
+goes down. Rather than assuming all the panels are
+in a single tree and we draw from the root.
+
+But then if you want to make smaller changes to a
+layout how do you do that?
+
+[61:
+
+Sun Jun 11 02:02:45 2023 Maybe I should just start
+representing my existing layout and see how it
+goes. I kind of think radio panels might be worth
+it. In a radio panel only one child is displayed,
+so saying 'display kid333' automatically
+undisplays everything else in that radio panel.
+
+So I'd have stuff like
+
+[panel.main]
+  size=[10,3]
+  position=[0,0]
+[panel.layout]
+  type=radio
+  size=fill
+  parent=main
+[panel.layoutT2sday]
+  size=fill
+  parent=layout
+[panel.t2sdayLeft]
+  size=[5,3]
+  pos=[0,0]
+  parent=layoutT2sday
+  buttons=[ [ waitroom, opener, slidesnme, justme, demonme ],
+            [ modsup, openernme, clipfull, emacsnme, creed ],
+            [ home,  clips, clipnme, justslides, backstage ],
+          ]         
+
+[panel.layoutSelfImage]
+  size=fill
+  parent=layout
+
+[action.gotoT2sday]
+  do=enable
+  panel=layoutT2sday
+[action.gotoSelfImage]
+  do=enable
+  panel=layoutSelfImage
+  
+[button.waitroom]
+  press=[action, shell, "/data/ackley/AV/OBS2021/assets/obs-cli/xdoc -- scene switch ts-WAIT-ROOM"]
+
+[63:
+
+Sun Jun 11 02:26:57 2023 OK now, is doing a shell
+command an ACTION or an EVENT? I just called it an
+action, but :49: above has it as an event. Seems
+like they want to be actions. But then it seems
+like 'event' is just the past tense of 'action'.
+
+EVENT
+ - button press
+ - button release
+ - timer complete
+
+ACTION
+ - setImage BUTTON IMAGE
+ - display PANEL
+ - after DELAY ACTION
+ - at INTERVAL ACTION
+ - sequence ACTION, ACTION ..
+
+[64:
+
+Sun Jun 11 06:31:28 2023 OK come on come on.
+
+If an action is NOT an event, then actions are
+going to get stuck inside events all the time.
+
+SEE event, DO action. IFTTT
+
+So let's say it's all events, for example.
+
+
+
+:64]
+
+:63]
+
+:61]
+:60]
+
+:59]
+:58]
+
+:57]
+:52]
+
+:51] 
+
+:50]
+:49]
+
+:48]
+
+:47]
+[62:
+
+Sun Jun 11 02:22:46 2023 Roughing up a 'realer'
+foo.toml based on :61: above. Thinking: Undefined
+valkeys should have defaults like 'print error
+message when invoked', rather than thinking we'll
+sanity check the whole structure and complain at
+the top.
+:62]
+[65:
+
+Sun Jun 11 06:47:02 2023 How about different
+descriptions in different places for the same
+name?
+
+[to.gotoT2sday]     # define gotoT2sday as an action
+  do=enable
+  panel=layoutT2sday
+
+[to.waitingRoom]
+  do=shell
+  command="/data/ackley/AV/OBS2021/assets/obs-cli/xdoc -- scene switch ts-WAIT-ROOM"]
+
+[66:
+
+Sun Jun 11 07:12:49 2023 So, IFTTT starts with
+triggers and actions, and adds various modifiers
+like queries and filters and delays. They take the
+service API point of view - that anything to be
+interacted with offers certain triggers and
+actions (say) and you hook them up.
+
+button
+  pressed
+  released
+[67:
+
+Sun Jun 11 07:33:25 2023 Actually maybe we want to
+distinguish like 'button' vs 'key' or something?
+'key' being the physical plastic thing on a
+streamdeck, and 'button' being the image and other
+configuration that we place on a key? So it would
+be key presses and releases that are the triggers,
+and buttons would be like IFTTT rules.
+
+:67]
+clock
+  strikes
+  reaches
+
+file
+  updated
+
+# we CANNOT go here now, but there's also like
+obs
+ SceneTransitionStarted
+
+:66]
+
+:65]
+[68:
+
+Sun Jun 11 07:42:53 2023 OK GODAMIT MINIMAL
+MINIMAL DECLARATION TIME.
+
+[button.NAME]
+ keyPress=ACTION
+ keyRelease=ACTION
+
+[69:
+
+Sun Jun 11 07:59:41 2023 OK, I'm just going for
+getting the streamdeck library integrated with
+what we have so far. Let's get key presses and
+releases going underneath us to help drive our
+design toward the foggen real.
+[70:
+
+Sun Jun 11 08:41:35 2023 OK have made progress and
+have the physical streamdecks getting initted and
+sending messages within the streamdack framework.
+
+Current issue is when we get a
+key_change_callback(..) we don't have an Event to
+build for it. Or at least we're not building one
+yet.. [71:
+
+Sun Jun 11 08:49:44 2023 OK now we have a KeyEvent
+and we are seeing them fire:
+
+    899588.340389814 executed at 899588.340545928 delay 0.00015611399430781603
+    SLEEPEZ 899588.34078179
+    KeyEvent(0:True) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7fec072ad610> ran 899589.045289693
+    KeyEvent(0:False) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7fec072ad610> ran 899589.145733923
+    SHEELEV 899589.340119419
+    899589.340683038 executed at 899589.343574863 delay 0.002891825046390295
+
+The keys are coming back as raster scan indexes
+(0..14 for each of my decks).
+
+And we can deal with quite a bit of rollover, it
+appears:
+
+    900039.873756988 executed at 900039.874041621 delay 0.00028463301714509726
+    SLEEPEZ 900039.874253464
+    KeyEvent(5:True) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c610> ran 900039.906893474
+    KeyEvent(6:True) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c610> ran 900039.907217336
+    KeyEvent(7:True) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c610> ran 900039.907246183
+    KeyEvent(8:True) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c610> ran 900039.907262714
+    KeyEvent(5:True) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c7f0> ran 900039.907277503
+    KeyEvent(6:True) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c7f0> ran 900039.907291625
+    KeyEvent(7:True) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c7f0> ran 900039.907306021
+    KeyEvent(8:True) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c7f0> ran 900039.907320042
+    KeyEvent(6:False) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c610> ran 900039.95722306
+    KeyEvent(5:False) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c610> ran 900039.957458555
+    KeyEvent(7:False) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c610> ran 900039.957482326
+    KeyEvent(8:False) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c610> ran 900039.957499118
+    KeyEvent(6:False) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c7f0> ran 900039.957514079
+    KeyEvent(7:False) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c7f0> ran 900039.957528636
+    KeyEvent(8:False) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c7f0> ran 900039.957542648
+    KeyEvent(5:False) on <StreamDeck.Devices.StreamDeckOriginalV2.StreamDeckOriginalV2 object at 0x7f975e55c7f0> ran 900039.95756393
+    900040.874166059 executed at 900040.874385396 delay 0.00021933706011623144
+    SHEELEV 900041.025827344
+
+That's a quick four-button hit on both decks
+'simultaneously'. Note interleaving of
+0x7f975e55c610 and 0x7f975e55c7f0 sources, all
+looks okay so far as far as it goes. And note the
+pretty damn tiny timestamp deltas between some of
+the events - like
+
+    (format "%f" (- 900039.957528636 900039.957514079))
+    "0.000015"
+
+15 usec? Can that really be right?
+
+[72:
+
+Sun Jun 11 09:04:01 2023 Maybe it's a side effect
+of using time.monotonic() ? And they're really
+coming in at the 'same' time?
+
+[73:
+
+Sun Jun 11 09:11:02 2023 Well, similar results
+from both of these - 
+
+    >>> "{:.8f}".format(1_000_000*(-time.monotonic()+time.monotonic()))
+    '2.35205516'
+    >>> "{:.8f}".format(1_000_000*(-time.time()+time.time()))
+    '2.62260437'
+
+[74:
+
+Sun Jun 11 09:14:51 2023 There's a small issue
+about monotonic, though: if we wanted to have
+events firing on wall clock times - like top of
+the minute or whatever, monotonic is going to hurt
+us. Maybe we should switch to time.time() now, and
+accept we'll be messed up if the system time gets
+adjusted? [75:
+
+Sun Jun 11 09:17:52 2023 Well, did that; we'll
+see.
+
+Now, how can we get a KeyEvent to actually do
+something?
+
+TODO:
+
+[78: Sun Jun 11 10:03:27 2023
+DONE :78] - Map key index to 2D
+[79:
+DONE :79] - Get streamdeck serial number for id
+[92: Mon Jun 12 09:42:05 2023
+DONE :92] - Flesh out Decks config enough to match with
+   ids
+[93: MOSTLY DONE  :93] - Derive 2D pos for deck+key in screen space
+[94: DONE  :94] - Print that out
+
+:75]
+
+:74]
+:73]
+
+:72]
+
+:71]
+
+:70]
+:69]
+
+:68]
+[76:
+
+Sun Jun 11 09:33:16 2023 OK now we have some scary
+fuckup going on: One of the streamdecks seems to
+respond fine, but the other one seems to go silent
+after its first key press. We don't even see the
+first key release.. Gah. Powercycling..[77:
+
+Sun Jun 11 09:39:21 2023 OK powercycling didn't
+fix it, but it appears that we can't safely call
+'deck' methods inside a key event callback.
+[80:
+
+Sun Jun 11 10:03:50 2023 OK so we've made our own
+DeckInfo object to cache various StreamDeck
+properties so we don't have to call back into it
+during key call backs, and things seem to be
+reliable again.
+
+Now I guess we're up to Decks stuff in the config
+file? 
+
+:80]
+:77]
+
+:76]
+[81:
+
+Sun Jun 11 11:09:44 2023 OK, now we're searching a
+few locations for the config file, like:
+
+    ackley@lcf5820:/data/ackley/PART4/code/D/streamdack$ STREAMDACKCONFIGPATH=notes/foo.toml streamdack
+    Found config file notes/foo.toml
+    {'d..
+
+vs
+
+    ackley@lcf5820:/data/ackley/PART4/code/D/streamdack$ streamdack
+    Found config file /home/ackley/.config/streamdack/streamdack.toml
+    {'d..
+
+vs
+
+    ackley@lcf5820:/data/ackley/PART4/code/D/streamdack$ streamdack
+    Error: Config file not found in ['~/.config/streamdack/streamdack.toml', './streamdack.toml']
+    ackley@lcf5820:/data/ackley/PART4/code/D/streamdack$ echo $?
+    2
+    ackley@lcf5820:/data/ackley/PART4/code/D/streamdack$ 
+
+:81]
+[82:
+
+Sun Jun 11 11:23:41 2023 OK, now we have the issue
+of how do we associated all the info sitting in
+the config hash with the various python objects we
+have built to represent them.
+
+Maybe everybody has a configure(self,config)
+method that we call after loadConfig works, and
+each one picks off whatever it wants?
+
+Lunch break.
+
+:82]
+[83:
+
+Sun Jun 11 13:02:56 2023 OK so we have a plausible
+absolute 'screen' position for a KeyEvent from
+either deck, and now we need to find out what
+button, if any, is located on that key.
+
+And I guess we really want to ask the Screen about
+that, because I'm thinking that's where we'll
+render the panel layouts and so on to, as we
+configure the deck keys themselves.
+
+And if we could figure it out, we might want a way
+to say that a key release should be associated
+with THIS button, even if the key gets remapped to
+another button between the press and the
+release.. urgh.
+[84:
+
+Sun Jun 11 13:19:46 2023 We could keep a hash of
+pressed keys and the button they were pressed on,
+and always or by default deliver the release to
+the same button.
+
+Could do that by position in screen space? Do we
+even actually have a Screen class yet?[85:
+
+Sun Jun 11 16:20:35 2023 We do, but it's not
+developed very far. In particular, we didn't
+decide what 'self.pixels' is supposed to
+contain.. 
+
+:85]
+
+:84]
+
+:83]
+[86:
+
+Mon Jun 12 02:03:03 2023 OK let's walk the panels
+and 'pack' them to whatever degree we're going to
+and print out the results. Got to get moving here.
+
+[87:
+
+Mon Jun 12 03:22:50 2023 OK well we haven't done
+that yet but we made some progress starting to
+merge the config hash info into the various
+objects with which it is associated.
+[88:
+
+Mon Jun 12 03:43:54 2023 And we have a Screen
+section with a top level list of panels. So we
+could try a walk, let's go.[89:
+
+Mon Jun 12 09:03:37 2023 OK so we have this
+
+        Panel.Panel.walkPanels(lambda panel: (print("WP:"+repr(panel)), True))
+
+producing this
+
+    WP:[main:10x3@[0, 0]]
+    WP:[layout:10x3@(0, 0)]
+    WP:[layoutT2sday:10x3@(0, 0)]
+    WP:[t2sdayLeft:5x3@[0, 0]]
+    WP:[t2sdayRight:5x3@[5, 0]]
+    WP:[layoutSelfImage:10x3@(0, 0)]
+
+which is plausible as far as it goes. But I guess
+we need to be able to pass extra args through the
+recursion, right? Like for screen absolute
+positioning..
+[90:
+
+Mon Jun 12 09:26:16 2023 Barf, well, now it's like
+
+        def reportPanel(panel,arg):
+            arg['count'] += 1
+            print(str(arg['count'])," WP:"+repr(panel))
+            return True
+        Panel.Panel.walkPanels(reportPanel,{'count' : 0})
+
+to produce
+
+    1  WP:[main:10x3@[0, 0]]
+    2  WP:[layout:10x3@(0, 0)]
+    3  WP:[layoutT2sday:10x3@(0, 0)]
+    4  WP:[t2sdayLeft:5x3@[0, 0]]
+    5  WP:[t2sdayRight:5x3@[5, 0]]
+    6  WP:[layoutSelfImage:10x3@(0, 0)]
+
+showing we can accumulate side effects if we need
+to.. but of course not in a lambda blah because a
+statement is not an expression blah blah but hey
+nested funcs blah blah blah
+
+[91:
+
+Mon Jun 12 09:41:46 2023 So, where are we?[96:
+
+Mon Jun 12 09:42:37 2023 OK claimed some
+to-dos. It appears we're at something like a
+RenderPanelsEvent after some approach to
+rendering. So let's think about rendering for a
+couple here, now that we're closer to it..
+
+We have a Screen. It was going to have a sparse
+pixel map like
+
+  (x,y) -> button
+
+or maybe
+
+  (x,y) -> [button]
+
+although I can't remember now why I thought we
+might need that.. the panels have their stacking
+order, and kids will draw on top of parents.. and
+events will actually be associated with 'pixels'
+and not buttons directly..
+
+Let's say
+
+  (x,y) -> buttonname
+
+for now and see how it goes. Oh I remember: It was
+for dirty bits:
+
+  (x,y) -> [newbutton, deepcopyofprerenderbutton]
+
+or something, so we'd somehow know if anything
+changed and we need to update the deck.
+
+It might be easier if we could just keep button
+names, at this level, and have some way for
+buttons to be marked clean after rendering.
+
+  (x,y) -> [newbuttonname, oldbuttonname]
+
+render[98: Mon Jun 12 10:11:42 2023 TODO  :98]
+[99: Mon Jun 12 11:33:59 2023
+DONE :99] 1. Walk pixels and set names[1] = names[0]
+[100: DONE  :100] 2. Render panels to button names in names[0]
+[150: Thu Jun 15 15:13:41 2023
+DONE :150] 3. Walk pixels and update deck if names[0] !=
+    names[1] or buttons[names[0]].isDirty()
+[151:
+DONE :151] 4. Walk buttons and do button.setClean()    
+[152: Now handled by screen.renderHZ (default 10)
+DONE :152] 5. Sleep for .1 second
+
+[97:
+
+Mon Jun 12 10:11:23 2023 Well that seems vaguely
+plausible. 
+
+:97]
+
+:96]
+
+:91]
+
+:90]
+
+:89]
+
+:88]
+
+:87]
+
+:86]
+[101:
+
+Mon Jun 12 11:34:18 2023 OK so need to break for
+computingup prep, but have made some
+progress. Next up is new design - Button
+classmethods or something less gross - after, um,
+creating Button.py..
+[103:
+
+Mon Jun 12 14:57:49 2023 OK, made Button.py. How
+are we going to manage to deliver key releases to
+the button that got the corresponding key press,
+even though the layout may easily have changed in
+the interim?
+
+Another Screen map of (x,y) -> button maybe?
+[104:
+
+Mon Jun 12 15:27:25 2023 How does the logic go?
+
+1. deck reports KeyEvent at some screenpos
+2. look up screenpos in pressedButtons
+   if pressed button found,
+     if keypress, increment count
+     else #keyrelease
+          decrement count
+          if count == 0
+             remove from pressed buttons
+             run key release actions
+     done
+3. # no pressed button found
+   if keyrelease:
+     log error 
+   else #keypress
+     look up screenpos in rendered buttons
+     if button found,
+        put into pressedButtons with count of 1
+        run key press actions
+   done
+
+[105:
+
+Mon Jun 12 16:00:04 2023 Is that it? Not clear
+what 'running actions' amounts to exactly also.
+
+[106:
+
+Mon Jun 12 16:20:33 2023 I guess an 'action' will
+be a class of its own?
+
+And here wwe are again at the same question as
+before: [How] Are Actions different than Events?
+[107:
+
+Mon Jun 12 16:54:28 2023 OK so we ditched
+Action.py and are just making more events in
+Event.py.
+
+How, for a use case, shall we make a button blink?  
+
+:107]
+
+:106]
+
+:105]
+
+:104]
+
+:103]
+[102:
+
+Mon Jun 12 14:33:23 2023 OK, another ComputingUp
+recorded.
+
+:102]
+
+:101]
+[108:
+
+Mon Jun 12 22:02:26 2023 OK what's the state of
+declaring 'action events' in the config file?[109:
+
+Mon Jun 12 22:03:49 2023 Well, we have (all so far
+unused) stuff like
+
+    [action.gotoT2sday]
+      do=enable
+      panel=layoutT2sday
+
+and also stuff like
+
+    [button.waitroom]
+      press=[action, shell, "/data/ackley/AV/OBS2021/assets/obs-cli/xdoc -- scene switch ts-WAIT-ROOM"]
+
+    [button.home]
+      press=[action, display, layoutT2sday]
+
+Now, I'm thinking these latter things maybe ought
+to be more like
+
+    [button.home]
+      press=[[action, display, layoutT2sday]]
+
+to distinguish 'drive by' actions from 'declared
+actions' 
+
+    [button.home]
+      press=[gotot2sday, [action, log, "MESSAGE"]]
+
+[110:
+
+Mon Jun 12 22:29:02 2023 Spacing here
+fudge. Thinking we could start with
+
+    [button.home]
+      press=gotot2sday
+
+and not block ourselves out of more complex action
+specifications later.
+
+But having to name each action feels aggravating
+if as I imagine typically each action will be
+mentioned only once..
+
+[111:
+
+Mon Jun 12 22:46:49 2023 Well let's try to make a
+factory method to make ActionEvent subtypes..
+
+[112:
+
+Tue Jun 13 07:29:45 2023 OK well we did at least a
+cut at that. With stuff like
+
+    class SetVisibleEvent(Event):
+        Event.registerSubclass('setvisible',lambda type,panelname,vis: SetVisibleEvent(type,panelname,vis))
+
+called by stuff like
+
+            e = Event.Event.makeEvent(['action','setimage','layoutT2sday',"t2img/foo.png"])
+            print("SLFKKLFD",e)
+
+producing stuff like
+
+    EVMEV setimage ['layoutT2sday', 't2img/foo.png']
+    SLFKKLFD Event.SetImageEvent{'name': 'setimage', 'buttonname': 'layoutT2sday', 'imagename': 't2img/foo.png'}
+
+where it's all positional notation and you just
+have to know the args for each type.
+
+[113:
+
+Tue Jun 13 07:45:31 2023 So, what exactly is next
+here? 
+[114:
+
+Tue Jun 13 07:48:36 2023 I guess we could be at
+step 3 of :96: above. We're currently doing
+
+                print("MBEDIRT",ary[0])
+
+where we should actually, we think, 'hit the deck'
+[115:
+
+Tue Jun 13 08:20:37 2023 OK, so, we now have to
+face mapping from screen pos to deck and deck
+index. We started ScreenArray for that but never
+got it connected to the actual decks.
+
+So do we find a slot in the boot seq and pass the
+decks to the screen, and have the screen make a
+ScreenArray for each of them?[116:
+
+Tue Jun 13 08:24:19 2023 Where in the bootseq
+could that go? Let's review.[117:
+
+Tue Jun 13 08:24:50 2023 Hmm we appear to be doing
+this already:
+
+        self.screen.configureArrays(self.decks)
+
+[118:
+
+Tue Jun 13 08:25:29 2023 Yeah so I guess we should
+change this:
+
+    def configureArrays(self,decks):
+        for sdi in decks.streamdeckinfos:
+            print("cfgArys",sdi)
+
+and we can do sdi.pos and sdi.size to get the
+positioning.[119:
+
+Tue Jun 13 09:34:52 2023 OK we're up to needing an
+official format image and to call render_key_image
+with it. We haven't deal serious with our own
+images yet.[120:
+
+Tue Jun 13 09:46:34 2023 OK let's make class Image
+and put a class map in there, path -> Image. In
+for a pound..[121:
+
+Tue Jun 13 10:44:46 2023 Ugh! Different StreamDeck
+devices need images in different formats! We need
+to thread the destination streamdeck into the
+image caching process..[122:
+
+Tue Jun 13 13:00:52 2023 OK and how, once again,
+do we map from a buttonname to a Button
+object?[123:
+
+Tue Jun 13 14:15:33 2023 Holy Crahpoly we just
+displayed a configured-by-streamdack.toml image on
+a button. First time. And it's a Spacing Post
+Captain's Society #1 badge!
+
+:123]
+
+:122]
+
+:121]
+
+:120]
+
+:119]
+
+
+:118]
+
+:117]
+
+:116]
+
+:115]
+
+:114]
+:113]:112]
+
+:111]
+:110]
+:109]
+
+:108]
+[124:
+
+Tue Jun 13 14:39:40 2023 OK, so how close are we
+on running button actions on key press and release?
+[125:
+
+Tue Jun 13 15:05:25 2023 At present, in
+Decks.key_change_callback(..), we're just
+scheduling a KeyEvent with the callback info. But
+that seems wrong, because it kind of seems like we
+should map the key info to a Button immediately,
+in case we rerender before the KeyEvent runs?
+
+And how do we map to a button? Use the screen.
+[126:
+
+Tue Jun 13 17:02:30 2023 OK it's all a huge mess
+but streamdack's getting close to running a shell
+command to control obs. Have to break for cooking
+but the current issue is the whole shell command
+with args is getting taken as the command name..
+[127:
+
+Tue Jun 13 21:31:12 2023 OK so finally we're
+controlling obs with our own dogfood so that's
+nice.
+
+Next step after nap is probably implement panel
+visibility switching.
+
+Actually, we really need to push buttons further
+towards StreamDeck rendering, so labels and fonts
+and stuff can take effect.[128:
+
+Wed Jun 14 01:21:09 2023 OK let's try to get a
+button all the way to StreamDeck set_key_image or
+so. ..We want to bypass the update_key_image
+example code with something buttony.[129:
+
+Wed Jun 14 01:34:47 2023 OK tearing into
+it. Another issue we fluffed over before was the
+image caching needs to consider more than just the
+path and the deckinfo image format -
+deckinfo.imageformat turns out to be a dict with a
+bunch of fields including rotation and
+flipping..[130:
+
+Wed Jun 14 01:37:41 2023 I guess we flatten the
+return value of StreamDeck.key_image_format
+somehow so that we can use all of it as part of
+the key.[131:
+
+Wed Jun 14 01:43:00 2023 OK we're now also saving
+deckinfo.imageformatstr = str(deckinfo.imageformat) 
+to use in keys.[132:
+
+Wed Jun 14 02:58:14 2023 OK now we have just about
+everything imaginable about button drawing stored
+in the button object..[133:
+
+Wed Jun 14 03:30:38 2023 But yergh that means that
+all that has to be included in the image cache
+key, so that we'll generate different images if
+two buttons use the same image file with different
+button parameters.[134:
+
+Wed Jun 14 04:00:30 2023 OK well that's done, at
+least possibly.. Hmm let's check it with a second
+button using the same image..[135:
+
+Wed Jun 14 04:02:58 2023 Looks like it works.. I
+just changed the cropping and the different
+buttons got the different crops..[136:
+
+Wed Jun 14 04:05:04 2023 Next up is panel
+visibility changes.
+
+:136]
+
+:135]
+
+:134]
+
+:133]
+
+:132]
+
+:131]
+
+:130]
+
+:129]
+
+:128]
+
+:127]
+:126]
+
+:125]
+:124]
+[137:
+
+Wed Jun 14 06:09:00 2023 OK once we start
+switching layouts we're getting key releases
+delivered to the wrong buttons, like here
+
+    BUTTONEVENTEC si10 False -1 1686744515.8734846
+
+which should have been 'wong False 0'.
+
+Did we ever implemented the active button cache?
+Did we ever actually test it?
+
+After nap.
+[138:
+
+Wed Jun 14 06:15:00 2023 So maybe this cache has
+to go with the deck, not the screen? If we were
+going to allow ScreenArrays to overlap then we
+could get two presses in a row at the same screen
+pos without an intervening release..
+
+But maybe we should choke if ScreenArrays
+overlap. We'll see.
+
+AFTER NAP.[139:
+
+Wed Jun 14 10:01:17 2023 Well, let's do it at the
+Screen and fight off overlap later.[140:
+
+Wed Jun 14 11:18:10 2023 OK that seems to be
+working. Thinking ahead to 'seriously' playing the
+self image, I'd like to support 'toggle'
+buttons.. wait: can we already do that with a 1x1
+radio panel containing two 1x1 panels each with
+one button?
+
+I'd think we could.. though we might want a little
+syntactic sugar to help out in the config file.
+[142:
+
+Wed Jun 14 11:27:46 2023 How about an example
+
+[panel.toggleSelfImageOutline]
+ type=radio
+ size=[1,1]
+ pos=[0,0]
+ parent=layoutSelfImage
+
+[panel.toggleSelfImageOutlineOff]
+ size=[1,1]
+ pos=[0,0]
+ parent=toggleSelfImageOutline
+ buttons= [ [ buttonSelfImageOutlineOff ] ]
+ visible=true
+
+[panel.toggleSelfImageOutlineOn]
+ size=[1,1]
+ pos=[0,0]
+ parent=toggleSelfImageOutline
+ buttons= [ [ buttonSelfImageOutlineOn ] ]
+
+[button.buttonSelfImageOutlineOff]
+ label=siOff       
+ press=[[action, shell, "echo buttonSelfImageOutlineOff"],
+        [action, show, toggleSelfImageOutlineOn]]
+[button.buttonSelfImageOutlineOn]
+ label=siOn
+ press=[[action, shell, "echo buttonSelfImageOutlineOn"],
+        [action, show, toggleSelfImageOutlineOff]]
+
+:142]
+[141:
+
+Wed Jun 14 11:23:33 2023 We probably shouldn't use
+'.toml' for our config files, given we hacked on
+it. (Though it's a little nice that we get
+(Conf[TOML]) mode on our emacs buffer..)
+
+:141]
+
+
+:140]
+
+:139]
+
+:138]
+
+:137]
+[143:
+
+Thu Jun 15 04:03:32 2023 OK I want to get named
+'actions' working from the streamdack.cfg. I'm
+thinking (re)introduce Action.py to collect action
+declarations, even though internally they're
+really Events. Then during action processing when
+we see a name we look it up in actions
+[144:
+
+Thu Jun 15 12:35:15 2023 OK what
+attributes/configs should Action have? How far do
+we break down the positional vs keywoard
+formatting? Minimum I guess would be like
+'type' and.. well, minimum minimum would be like 
+
+    [action.toot]
+     acts=[[shell, "echo toot"],otheract,everyact]
+
+and now I wonder about suppressing the 'action, '
+at the beginning of all my existing actions.. It
+seems we can infer from context when we're talking
+about actions, so couldn't like this:
+
+    [button.buttonSelfImageOutlineOff]
+     label=siOff       
+     image="tap-the-sign-implementable-2023/tap-the-sign-implementable-10.png"
+     crop=[0,750,0,0]
+     press=[[action, shell, "/data/ackley/AV/OBS2021/assets/obs-cli/xdoc -- sceneitem hide ts-POPUPS only-the-impl-img"],
+            [action, show, toggleSelfImageOutlineOn]]
+
+be like this instead:
+
+    [button.buttonSelfImageOutlineOff]
+     label=siOff       
+     image="tap-the-sign-implementable-2023/tap-the-sign-implementable-10.png"
+     crop=[0,750,0,0]
+     press=[[shell, "/data/ackley/AV/OBS2021/assets/obs-cli/xdoc -- sceneitem hide ts-POPUPS only-the-impl-img"],
+            [show, toggleSelfImageOutlineOn]]
+
+?
+[145:
+
+Thu Jun 15 13:33:24 2023 OK, the '[action, 's are
+now all gone.
+
+:145]
+Then a named action might be like:
+
+    [action.gotoSelfImage]
+      acts=[[show,layoutSelfImage],
+            [shell, "echo FOO"]]
+
+or
+
+    [action.gotoSelfImage]
+      acts=[[show,layoutSelfImage], sayFOO]
+
+    [action.sayFOO]
+      acts=[shell, "echo FOO"]
+
+or even
+
+    [action.sayFOO]
+      acts=[[shell, "echo FOO"], sayBAR]
+
+    [action.sayBAR]
+      acts=[[shell, "echo BAR"], sayFOO]
+
+which we will arrange to blow up after say
+
+    [actions]
+      maxactions=10
+
+or whatever acts have been initiated. Or 'maxacts'
+perhaps.
+      
+:144]
+:143]
+[146:
+
+Thu Jun 15 13:51:03 2023 Urgh now we have a bad
+ambiguity between defining an act inline, like
+
+ press=[show, selectPanel] 
+
+and defining a list containing a named act like
+
+ press=[doFoo, doBar]
+
+or
+
+ press=[doFoo, [show, selectPanel]]
+
+and it's on our head of course because we used
+crap like
+
+        if isinstance(actionlist,list):
+
+to decide what was going on in the actions..
+
+[147:
+
+Thu Jun 15 13:57:44 2023 If we had kept the
+'action' around as a privileged first list
+element, then anything other than that would have
+to be a named action name. Urgh.
+
+I suppose we could cut the other way, with some
+special thing to say 'this is not an inline
+action'. 'acts'? So this 
+
+ press=[doFoo, [show, selectPanel]]
+
+would have to be this
+
+ press=[acts, doFoo, [show, selectPanel]]
+
+[148:
+
+Thu Jun 15 14:04:32 2023 hrm. Vs
+
+ press=doFoo,       #just doFoo
+ press=[doFoo]      #just doFoo
+ press=[doFoo, [action, show, selectPanel]] # doFoo+show
+ press=[[[doFoo, [action, show, selectPanel]]]] # doFoo+show
+ press=[action, show, selectPanel]   # just show
+ press=[[action, show, selectPanel]] # just show
+
+Urgh I think I want the 'action's back..
+
+Instant karma's gonna get you
+[149:
+
+Thu Jun 15 15:03:22 2023 OK, 'action's are back,
+and we seem to have named actions working as well,
+along with a functioning stack overflow abort for
+stuff like:
+
+    [action.die1]
+     acts=die2
+    [action.die2]
+     acts=die1
+
+producing like:
+
+    WARNING: Action.maxdepth=5 exceeded, abandoning action
+    WARNING: Depth 6: die2
+    WARNING: Depth 5: die1
+    WARNING: Depth 4: die2
+    WARNING: Depth 3: die1
+    WARNING: Depth 2: die2
+    WARNING: Depth 1: die1
+    WARNING: Depth 0: ['die1']
+
+(although any satisfactory actions that got
+scheduled before the abort still go ahead and
+execute.) 
+
+:149]
+:148]
+
+:147]
+:146]
+[157:
+
+Thu Jun 15 15:15:37 2023 Well I think it's time to
+call a first stopping point for streamdack and
+push it.
+
+ - We've claimed all the to-dos I can find in here
+ - We've achieved eating our own dogfood
+ - Super overdue to get back to multicellularity!
+ 
+
+:157]
+[158:
+
+Thu Jun 15 15:57:39 2023 Committing to StreamDack.
+
+:158]
