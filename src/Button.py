@@ -71,7 +71,7 @@ class Button:
             if len(actionlist) > 0:
                 if actionlist[0] == 'action': # inline action
                     event = sda.actions.makeActionEvent(actionlist)
-                    print("RUNACTIONS3",event)
+                    #print("RUNACTIONS3",event)
                     eq.runIn(0,event)
                 else:
                     for alist in actionlist: # list of actions
@@ -79,12 +79,15 @@ class Button:
                             return self.failActions(actionlist,depth)
         elif actionlist is not None: # single named action
             action = sda.actions.getAction(actionlist)
-            print("RUNACTION0",action.acts)
+            #print("RUNACTION0",action.acts)
             if not self.runActionsHelper(action.acts,depth+1):
                 return self.failActions(actionlist,depth)
         return True
 
     def handleKeyEvent(self,buttonevent,eq,now,dead):
+        sda = self.buttons.sda
+        sda.EQ.dimmer.wake()
+
         press = buttonevent.newstate
         if press:
             self.count = self.count+1

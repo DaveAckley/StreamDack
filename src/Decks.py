@@ -22,6 +22,12 @@ class DeckInfo:
         if 'size' in cfg:
             self.size = cfg['size']
 
+    def __str__(self):
+        return "DI:"+self.name+"/"+self.serial
+
+    def __repr__(self):
+        return str(self)
+
     def addDeck(self, index, deck, decks):
         self.decks = decks
         self.deck = deck
@@ -29,8 +35,10 @@ class DeckInfo:
         self.type = deck.DECK_TYPE
         self.firmware = deck.get_firmware_version()
         self.serial = deck.get_serial_number()
-        self.imageformat = deck.key_image_format()
-        self.imageformatstr = str(self.imageformat)
+        self.isvisual = deck.is_visual()
+        if self.isvisual:
+            self.imageformat = deck.key_image_format()
+            self.imageformatstr = str(self.imageformat)
         dsize = (deck.KEY_COLS, deck.KEY_ROWS)
         if hasattr(self,'size'):
             if dsize[0] != self.size[0] or dsize[1] != self.size[1]:
@@ -57,16 +65,26 @@ class Decks:
             return self.deckmap[serial]
         return None
 
+    def setAllDecksBrightness(self,percent):
+        for index, deck in enumerate(self.streamdecks):
+            if not deck.is_visual():
+                continue
+            print(f'{deck} brightness {percent}')
+            deck.set_brightness(percent)
+        
     def initDecks(self):
         self.streamdecks = DeviceManager().enumerate()
         print("Found {} Stream Deck(s).\n".format(len(self.streamdecks)))
+        print("viz {}\n".format(self.streamdecks))
 
         for index, deck in enumerate(self.streamdecks):
             # This example only works with devices that have screens.
-            if not deck.is_visual():
-                continue
+            #if not deck.is_visual():
+            #   continue
 
+            print("TRYING TO OPEN DEVICE {} {}".format(index,deck))
             deck.open()
+            print("TRYING TO RESET DEVICE {}".format(index))
             deck.reset()
 
             serial = deck.get_serial_number()
@@ -86,9 +104,6 @@ class Decks:
                 info.name, info.type, info.serial, info.firmware
             ))
 
-            # Set initial screen brightness to 30%.
-            deck.set_brightness(30)
-
             # Set initial key images.
             nullButton = Button.Button(self.sda.buttons,"",{'image' : 'black.png'})
             nullButtonImage = self.sda.images.findButtonImage(nullButton,info)
@@ -98,6 +113,13 @@ class Decks:
 
                 # Register callback function for when a key state changes.
                 deck.set_key_callback(lambda deck, key, state : self.key_change_callback(deck,key,state))
+
+            # SKIP REST IF NO SCREEN
+            if not deck.is_visual():
+                continue
+
+            # Set initial screen brightness to 30%.
+            deck.set_brightness(30)
 
             # Wait until all application threads have terminated (for this example,
             # this is when all deck handles are closed).
@@ -196,7 +218,7 @@ class Decks:
         font = ImageFont.truetype(font_filename, font_size)
         pixUp = (1.0 - label_pos[1])*image.height
         pixOver = label_pos[0]*image.width
-        print("FONGFG",font_fg,label_text,button)
+        #print("FONGFG",font_fg,label_text,button)
         if font_bg != "None":
             for x in range(-1,2):
                 for y in range(-1,2):

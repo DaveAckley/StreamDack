@@ -12,10 +12,10 @@ class Actions:
     def getAction(self,actionname):
         act = self.actionmap.get(actionname,None)
         if not act:
-            print("GETACTDDKD",actionname,self.cfg)
+            #print("GETACTDDKD",actionname,self.cfg)
             cfg = self.cfg.get(actionname,{})
             act = Action(self,actionname,cfg)
-            print("GETACTD",act,cfg)
+            #print("GETACTD",act,cfg)
             self.actionmap[actionname] = act
         return act
 
@@ -33,9 +33,9 @@ class Action:
     def __init__(self, actions, name, cfg):
         self.actions = actions
         self.name = name
-        print("INITACT",cfg)
+        #print("INITACT",cfg)
         self.acts = cfg.get('acts',None)
         if not self.acts:
             print(f"WARNING: No 'acts' found in {self.name}")
-        print("ACTMK",name,self.acts)
+        #print("ACTMK",name,self.acts)
 

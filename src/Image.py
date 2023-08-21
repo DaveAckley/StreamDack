@@ -44,6 +44,8 @@ class Images:
         return None
         
     def findButtonImage(self,button,deckinfo):
+        if not deckinfo.isvisual:
+            return None
         path = button.image
         #print("FINBUDINKMG",path)
         for id in self.imagedirs:

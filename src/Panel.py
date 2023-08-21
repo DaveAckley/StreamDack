@@ -28,7 +28,7 @@ class Panel:
     def configurePanels(cls, screen, panelsect):
         cls.screen = screen
         def makePanel(name,attrs):
-            print("MPATR "+name+ " " + str(attrs))
+            #print("MPATR "+name+ " " + str(attrs))
             if name not in cls.panelmap:
                 panel = Panel(name, None)
                 panel.kids = []
@@ -37,10 +37,10 @@ class Panel:
 
         for name, attrs in panelsect.items():
             makePanel(name,attrs)
-        print("CFGPN: "+str(cls.panelmap))
+        #print("CFGPN: "+str(cls.panelmap))
 
         def linkPanel(name,attrs):
-            print("LPATR "+name+" "+str(attrs))
+            #print("LPATR "+name+" "+str(attrs))
             if 'parent' not in attrs:
                 cls.toppanels.append(name)
             else:
@@ -54,7 +54,7 @@ class Panel:
                     parent.kids.append(name)
                     parent.kidmap[name] = idx
                     panel.parent = par
-                    print("ADKDKFN "+name+" to",parent.name,parent.kids)
+                    #print("ADKDKFN "+name+" to",parent.name,parent.kids)
                 print("LINKED "+name+" to "+str(parent))
 
         for name, attrs in panelsect.items():
@@ -70,7 +70,7 @@ class Panel:
                 panel.pos = (0,0)
             if not hasattr(panel,'size'):
                 panel.size = toplevelsize
-            print("TLPCFG: "+str(panel))
+            #print("TLPCFG: "+str(panel))
 
         def packPanel(panel):
             print(f"packPanel {panel}")
@@ -105,7 +105,7 @@ class Panel:
 
             if 'buttons' in attrs:
                 panel.buttons = attrs['buttons']
-                print("ZONGINBUT ",panel,panel.buttons)
+                #print("ZONGINBUT ",panel,panel.buttons)
                 
             for kidname in panel.kids:
                 kid = cls.panelmap[kidname]
@@ -115,7 +115,7 @@ class Panel:
             panel = cls.panelmap[name]
             packPanel(panel)
 
-        print("CFGPNLPK: "+str(cls.panelmap))
+        #print("CFGPNLPK: "+str(cls.panelmap))
 
     def __init__(self, name, cfg):
         self.name = name
@@ -154,12 +154,12 @@ class Panel:
 
     def setVisibility(self,show):
         parent = self.panelmap.get(self.parent,None)
-        print("PNCSETVI",self,show,parent)
+        #print("PNCSETVI",self,show,parent)
         if not show or not parent:
             self.visible = show
             return
         # Check if parent is radio
-        print("PNCOPPS",self)
+        #print("PNCOPPS",self)
         parent.popRadioKids()
         self.visible = show
-        print("PNCOOUT",self)
+        #print("PNCOOUT",self)

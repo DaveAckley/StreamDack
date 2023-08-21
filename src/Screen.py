@@ -36,13 +36,16 @@ class Screen:
         # Key releases need to be matched to the button
         # they originally pressed, even if the screen 
         # has changed out from underneath them since 
+        print("MESSAGE:MAPSPK10",spos,pressed)
         if spos in self.keysdown:
             if not pressed:
                 return self.keysdown.pop(spos)
             print("WARNING: IGNORED OVERLAPPING KEY PRESS AT",spos)
             return None
+        print("MESSAGE:MAPSPK11",spos,pressed)
         if pressed:
             but = self.pixels.get(spos,[None])[0]
+            print("MESSAGE:MAPSPKa11",spos,but,self.pixels)
             if but:
                 self.keysdown[spos] = but
             return but
@@ -81,6 +84,7 @@ class Screen:
 
     def configureArrays(self,decks):
         for sdi in decks.streamdeckinfos:
+            print("CONFIGURING",sdi)
             sa = ScreenArray(self,sdi.pos,sdi.size,sdi.deck,sdi)
             self.arrays.append(sa)
 

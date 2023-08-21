@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import shutil
 
 import Event
 import EventQueue
@@ -17,9 +18,18 @@ class StreamDack:
         self.EQ = EventQueue.EventQueue(self,"EQ")
         self.configPath = self.findConfigOrDie()
         self.loadConfig()
+        sda = self.getRequiredSection('streamdack');
+        self.bindirs = []       # paths in search order
+        self.bindirmap = {}     # path->True
+        if 'bindirs' in sda:
+            for id in sda['bindirs']:
+                self.addBinDir(id)
+        if len(self.bindirs) == 0:
+            self.addBinDir("")  # default path 
+
         self.screen = Screen.Screen(self,self.getRequiredSection('screen'))    # Check for required section early
         self.buttons = Button.Buttons(self,self.getRequiredSection('button'))
-        self.images = Image.Images(self,self.getRequiredSection('streamdack'))
+        self.images = Image.Images(self,sda)
         self.images.addImageDir(".")
         self.decks = Decks.Decks(self,self.getRequiredSection('deck'))      # Check for required section early
         self.actions = Action.Actions(self,self.getOptionalSection('action'))
@@ -32,7 +42,23 @@ class StreamDack:
         Panel.Panel.walkPanels(reportPanel,{'count' : 0})
         self.screen.configureArrays(self.decks)
         e = Event.Event.makeEvent(self,['action','setimage','layoutT2sday',"t2img/foo.png"])
-        print("SLFKKLFD",e)
+        #print("SLFKKLFD",e)
+
+    def addBinDir(self,path):
+        epath = os.path.expanduser(path)
+        if epath not in self.bindirmap:
+            self.bindirs.append(epath)
+            self.bindirmap[epath] = True
+
+    def resolveProgram(self,prog):
+        if prog[0] == '/':
+            return prog
+        for path in self.bindirs:
+            aprog = os.path.join(path,prog)
+            rprog = shutil.which(aprog)
+            if rprog is not None:
+                return rprog
+        return None
 
     def findConfigOrDie(self):
         paths = []

@@ -30,6 +30,7 @@ class Event(ABC):
     def __init__(self,sda,name):
         self.sda = sda
         self.name = name
+        self.sched = None
 
     def __str__(self):
         return str(self.__class__.__module__) + "." + str(self.__class__.__name__) + "" + str(self.__dict__)
@@ -42,6 +43,25 @@ class Event(ABC):
         pass
 
     
+class DimScreenEvent(Event):
+    def reschedule(self):
+        delay = 60*60
+        self.sda.scheduleEvent(delay,self) # one hour on
+        
+    def wake(self):
+        self.reschedule();
+        self.setBrightnessPercent(30)
+
+    def run(self,eq,now,dead):
+        self.setBrightnessPercent(0)
+        delta = now - dead
+        print(f'{dead} executed at {now} delay {delta}')
+
+    def setBrightnessPercent(self,pct):
+        decks = self.sda.decks
+        decks.setAllDecksBrightness(pct);
+        print(f'brightness now {pct}')
+
 class ClockEvent(Event):
 
     def run(self,eq,now,dead):
@@ -106,6 +126,16 @@ class ShellEvent(ThreadEvent):
         
     def threadRun(self,eq,now,dead):
         cmd = self.args[0]
+        cmda = cmd.split()
+        prog = cmda[0]
+        rprog = self.sda.resolveProgram(prog)
+        if rprog is None:
+            print(f"WARNING: NO EXECUTABLE '{prog}' FOUND; '{cmd}' IGNORED")
+            return
+        if rprog != prog:
+            cmda[0] = rprog
+            cmd = " ".join(cmda)
+
         print("SHELL",cmd)
         comp=subprocess.run(cmd,shell=True, capture_output=True)
         if comp.returncode != 0:
