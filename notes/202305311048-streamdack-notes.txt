@@ -1,4 +1,4 @@
-{159}  -*-  mode: text; fill-column: 50;  -*-
+{199}  -*-  mode: text; fill-column: 50;  -*-
 [0:
 
 Wed May 31 10:48:54 2023 OK, trying to whack up a
@@ -1888,3 +1888,491 @@ push it.
 Thu Jun 15 15:57:39 2023 Committing to StreamDack.
 
 :158]
+[159:
+
+Wed Jul  5 21:43:42 2023 Let's get 'bindirs'
+working so we can simplify the shell
+commands. [160:
+
+Wed Jul  5 23:22:47 2023 OK did that. Not the
+bestest portablest way but it's working for me, on
+linux, with no random whitespace in path names.
+
+:160]
+
+:159]
+[161:
+
+Thu Jul  6 07:14:43 2023 Thinking I could/should
+refactor the CLIP vs CLIP&ME stuff. Couldn't I put
+the to-be-maxscreened sources all into one scene,
+and show/hide them with a radio group instead of
+switching scenes for them? Then couldn't I put
+that scene into several other scenes, with a
+different transform for each one under another
+radio group, so I can have X-FULL and X-N-ME and
+perhaps other scales as modifier 'shift keys'.
+
+Let's try a little example.
+
+scene ts-MAXGROUP
+ scene ts-SLIDES-ONLY
+ scene ts-OPENER
+ scene ts-CLIP1
+
+scene X-FULL
+ scene ts-MAXGROUP xform full
+
+scene X-N-ME
+ scene ts-MAXGROUP xform NW 2/3
+
+---
+selectPanel button(4,0) goto scene X-FULL
+selectPanel button(4,1) goto scene X-N-ME
+
+panel.MAXGROUP
+ type=radio
+
+:161]
+[162:
+
+Sat Jul 15 14:52:02 2023 OK, setting up the new
+StreamDeck XL, SN: CL27L2A00421
+[163:
+
+Sat Jul 15 16:34:32 2023 Well that was totally
+easy. 
+
+:163]
+:162]
+[164:
+
+Mon Jul 17 09:44:59 2023 OK, setting up the
+streamdeck pedal is not quite so easy. Seems like
+maybe udev permission problems. But as root I
+could see
+
+  iManufacturer           1 Elgato
+  iProduct                2 Stream Deck Pedal
+  iSerial                 3 FL20L1A05539
+
+so we have that info now. Also:
+
+  idVendor           0x0fd9 Elgato Systems GmbH
+  idProduct          0x0086 
+
+for possible udevity.
+
+[165:
+
+Mon Jul 17 09:46:46 2023 I note
+
+    Bus 001 Device 010: ID 29ea:0360 Elgato Stream Deck XL
+      idVendor           0x29ea 
+      idProduct          0x0360 
+
+is a different vendor..
+
+But on
+
+      idVendor           0x0fd9 Elgato Systems GmbH
+      idProduct          0x0080 
+      bcdDevice            2.00
+      iManufacturer           1 Elgato
+      iProduct                2 Stream Deck MK.2
+      iSerial                 3 DL13L1A87580
+
+my MK.2 that works fine, the vendor matches the
+pedal..
+
+Same on the XL
+
+      idVendor           0x0fd9 Elgato Systems GmbH
+      idProduct          0x006c 
+      bcdDevice            4.30
+      iManufacturer           1 Elgato
+      iProduct                2 Stream Deck XL
+      iSerial                 3 CL27L2A00421
+
+
+:165]
+
+:164]
+[166:
+
+Wed Aug  2 10:55:52 2023 OK, if I have another
+little chunk of time to work on StreamDack, can we
+have some WIBNIs to prioritise?
+
+ - Syntactic sugar for toggles
+ - Macro definitions and expansions?
+ - Sustain groups
+ - Auto dimming on timeout
+ - include files
+ - source token tracking
+ - clock groups for synchronized animations
+ - rational time for tight intervals?
+
+:166]
+[167:
+
+Wed Aug  2 12:49:28 2023 How could a macro format
+work in tomlikey?
+
+[macro.XX]
+  posargs=['$name','$val']
+
+[body.XX]
+  name='button.a1$name'
+
+hmm. always a lotta hair.
+
+:167]
+[168:
+
+Sun Aug 20 15:13:49 2023 OK so I need to get
+serious about planning some little hacking time
+here. And I need to decide if I want to get
+serious about ts-MAXGROUP idea for allowing
+essentially all my sources to be repositioned and
+rescaled late in the process.
+
+ + It would allow us to get rid of all the X vs
+   X-N-ME and just choose FULL or ME separately
+
+ - It would require manually hiding whatever we
+   are switching away from, as far as I can
+   figure, which seems aggravating and fragile
+   
+[169:
+
+Sun Aug 20 16:09:51 2023 Is there any decent way
+around that? Is there not something from exeldro
+to do it for me?
+
+[170:
+
+Mon Aug 21 03:59:34 2023 Well I guess I'd be
+supposed to install Advanced Scene Switcher
+(acronym) but it's huge and hairy and it's not
+exeldro so that makes me scared. But it's been
+around since 2016 apparently, and it's a
+'featured' plugin..[171:
+
+Mon Aug 21 10:08:16 2023 aaaand the premade ASS
+package doesn't work on Ubuntu 20.04 because it
+assumes QT5 and we're QT5, so we'd have to build
+from source in a non-trivial in- or out-of-tree
+process either way.
+[172:
+
+Mon Aug 21 11:00:52 2023 So let's say 'not ASS',
+at least for now. What does that say about
+next-stop functionalities we might go for?
+
+ - Well, maybe ditch the refactored FULL-vs-ME
+   concept?
+
+ - Definitely get dimming going, which means
+   revisiting the timing stuff
+
+[173:
+
+Mon Aug 21 13:13:15 2023 Let's just go for the
+dimming/timing stuff.
+
+We want
+ - A ClockEvent (I think) that goes after say an
+   hour. And it gets rescheduled by any button
+   event? How do we do that?
+
+ - REVIEW EventQueue code and make notes dammit.
+
+:173]
+
+:172]
+
+:171]
+
+:170]
+
+:169]
+
+:168]
+[174:
+
+Mon Aug 21 13:16:30 2023
+
+We had
+
+   clock = Event.ClockEvent(self.sda,"DemoClock");
+   self.runIn(1,clock)
+
+back in demo days.[175:
+
+Mon Aug 21 13:17:19 2023 And Event.py has
+
+    class ClockEvent(Event):
+
+        def run(self,eq,now,dead):
+            delta = now - dead
+            print(f'{dead} executed at {now} delay {delta}')
+            then = int(now/10)*10+10
+            eq.runAt(then,self)
+
+so it doesn't look like something we'd expect to
+subclass..
+
+So we'll make DimmingEvent(Event) ?
+[176:
+
+Mon Aug 21 13:21:15 2023 Could we do something in
+ButtonEvent.__init__ ? There's a new ButtonEvent
+made for every button push, right?[177:
+
+Mon Aug 21 13:22:21 2023 How do we reschedule an
+event in these here parts?[178:
+
+Mon Aug 21 13:24:23 2023 It appears we can't? WTF?
+EventQueue.runIn puts a new tuple in the queue
+whether it's already in there or not. Do we check
+for obsolete when we pull events off?[179:
+
+Mon Aug 21 13:27:00 2023 No we don't.
+
+So the sleaziest thing would be to store the tuple
+time in the event itself as well, and confirm they
+match when each tuple comes off the pq, and just
+drop the tuple if its when doesn't match what's in
+the event.
+
+So that means we're going to have like hundreds of
+DimmableEvent tuples sitting in the pq for a half
+an hour waiting to be discarded? That really is
+pretty sleazy.
+
+Can the pq we're using pull out of the
+  middle?[180:
+
+Mon Aug 21 13:34:50 2023 Seems like not.
+
+Let's just do self.runAt and forget about it as
+quickly as possible.[181:
+
+Mon Aug 21 13:42:37 2023 Hmm, EQ.runIn and .runAt
+were just assuming they got a func, not an Event.
+[182:
+
+Mon Aug 21 13:45:51 2023 Renamed the parms. Coming
+off the pq they're assumed to be Event..
+
+So I think we're ready to see what we've broken
+with this reschedulability here?
+
+:182]
+
+:181]
+
+:180]
+
+:179]
+
+:178]
+
+:177]
+
+:176]
+
+:175]
+
+:174]
+[183:
+
+Mon Aug 21 13:58:13 2023 OK so to remind us,
+installing is like
+
+    ackley@lcf5820:/data/ackley/PART4/code/D/StreamDack$ pip install .
+    Processing /data/ackley/PART4/code/D/StreamDack
+      Installing build dependencies ... done
+
+NOT
+
+    ackley@lcf5820:/data/ackley/PART4/code/D/StreamDack$ pip install -e .
+    Obtaining file:///data/ackley/PART4/code/D/StreamDack
+      Installing build dependencies ... done
+
+doh.
+
+[184:
+
+Mon Aug 21 13:59:35 2023 But now stuff seems to be
+working again. Can we confirm it's the new
+stuff?[185:
+
+Mon Aug 21 14:03:07 2023 Well we believe it's the
+new stuff because we made a syntax error and that
+killed it..
+
+So pop pop pop.
+
+[186: 
+
+Mon Aug 21 14:10:36 2023 Let's make a
+DimScreenEvent at startup..[187:
+
+Mon Aug 21 14:13:51 2023 OK it looks like it's
+getting called. Let's try to get it rescheduled on
+button action.[188:
+
+Mon Aug 21 14:24:15 2023 Problem with the
+Button.__init__ idea is it gets called super
+early.. How can we do it later?
+[189:
+
+Mon Aug 21 15:01:58 2023 OK we're doing it in
+Button.handleKeyEvent and that seems to be
+working. I think we need a wake() method in
+DimScreenEvent to handle the rescheduling plus
+brightening the screen.
+
+[190:
+
+Mon Aug 21 15:15:56 2023 OK! I think screen
+dimming is now plausible!
+
+Hmm except it's still going after 30 seconds and I
+thought I set it to an hour..[191:
+
+Mon Aug 21 15:59:41 2023 OK I think we're there on
+dimming. What's next, to be thinking about at
+least?
+
+My mind immediately flashes to: Sustain pedal. Can
+we think about that a little bit here, perhaps
+with a few code refs?[192:
+
+Mon Aug 21 16:09:15 2023 So, for one thing, we are
+already counting button presses and releases for
+determining when to run actions:
+
+        def handleKeyEvent(self,buttonevent,eq,now,dead):
+ ..
+            press = buttonevent.newstate
+            if press:
+                self.count = self.count+1
+                if self.count == 1:
+                    self.runActions(self.onpress)
+            else:
+                self.count = self.count-1
+                if self.count == 0:
+                    self.runActions(self.onrelease)
+ ..
+
+[193:
+
+Mon Aug 21 16:18:18 2023 And the sustain semantics
+I imagine goes like this:
+
+ - Press a button
+   = If sustain pressed: 
+     - If button in sustained map, # SPECIAL TOGGLE MODE
+       remove it and runActions onrelease
+     - If button not in sustained map # NORMAL SUSTAIN START
+       add it and runActions onpress
+   = If no sustain pressed:
+     - runActions onpress
+   = sustain:
+
+[194:
+
+Mon Aug 21 16:30:04 2023 Well it's a little
+complicated, hunh? Pressing sustain needs to
+sustain all the currently pressed buttons as well
+as any new ones pressed later. So I imagine we
+want a map of all pressed buttons that we can
+enumerate at will.
+[195:
+
+Mon Aug 21 16:32:26 2023 If we wanted to follow
+the piano pedal closely, on an already-sustained
+press we'd want to do onrelease and then another
+onpress.. but really it doesn't make sense since
+we have no equivalent to the piano note decay over
+time, just boolean down and boolean up.
+
+So I was imagining re-pressing a sustained key
+that had been released, while still holding the
+sustain, toggles the key.
+
+So the 'sustain map' would contain maybe just
+buttons that had been released while the sustain
+was down?
+
+ - On press of anything but sustain:
+   if in sustain map, remove and run release
+   else run press
+ - On release of anything but sustain:
+   if sustain is down, add to sustain map
+   else run release
+
+ - On press of sustain:
+   note that it's down, somewhere
+   clear sustain map?
+ - On release of sustain:
+   iterate over sustain map
+   removing and running release
+
+[196:
+
+Mon Aug 21 16:46:10 2023 That seems in the
+ballpark of plausible?
+
+So is this all hardcoded, or do we imagine we
+could have declared 'sustain groups' somehow, with
+multiple independent sustains possible?
+
+Suppose you could declare a sustain (map or group
+or whatever) on any panel, and then it would apply
+to any button recursively contained within that
+panel. Then when a sustain is released, all its
+entries propagate upwards, and if they get to the
+top without being caught by another active
+sustain, only then does their onrelease finally
+run. [197:
+
+Mon Aug 21 16:56:42 2023 Hour screen blanker just
+fired.. Does that seem right?[198:
+
+Mon Aug 21 16:57:20 2023 16:56 vs 15:59 (from
+:191: above) I'll take it!
+
+We should commit.
+
+:198]
+
+:197]
+
+:196]
+:195]
+:194]
+
+
+:193]
+:192]
+
+:191]
+
+:190]
+
+:189]
+:188]
+
+:187]
+
+:186]
+
+:185]
+
+:184]
+
+:183]
