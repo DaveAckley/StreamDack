@@ -1,4 +1,4 @@
-{199}  -*-  mode: text; fill-column: 50;  -*-
+{219}  -*-  mode: text; fill-column: 50;  -*-
 [0:
 
 Wed May 31 10:48:54 2023 OK, trying to whack up a
@@ -2338,7 +2338,103 @@ panel. Then when a sustain is released, all its
 entries propagate upwards, and if they get to the
 top without being caught by another active
 sustain, only then does their onrelease finally
-run. [197:
+run. [199:
+
+Tue Aug 22 02:59:06 2023 So we'd need some new
+syntax to declare these sustain things, and
+presumably some special declaration to designate
+the buttons that control the those sustains, or
+else we've got chicken and egg.
+
+Tue Aug 22 08:32:57 2023 So okay let's make up
+syntax. Let's say
+
+ - a new attribute Panel.sustain, which is the
+   'sustain map'? Defaults to None but if you init
+   it to {} then that panel can sustain its
+   recursive contents.
+ - a new attribute Button.pedal? that names the
+   panel (or panels?) it sustains?
+
+[panel.main]
+  size=[10,3]
+  pos=[0,0]
+  sustained={}
+
+[button.pedal1]
+  sustains=main   # or [main]
+
+[200:
+
+Tue Aug 22 09:44:44 2023 Or maybe every panel gets
+a sustained={} for free, but unless there's a
+pedal to activate it, nothing will happen.
+[201:
+
+Tue Aug 22 10:48:01 2023 OK, made Panel.sustained
+= {}, and Panel.sustaining = False. And
+Button.sustains = None, overridable in the cfg.
+
+So now we 'just' need to hook things up. What will
+that involve?
+
+ - Need to be able to search up .. muh moh: a
+   Button doesn't know who contains it? We'll have
+   to derive that?[202:
+
+Tue Aug 22 11:08:22 2023 Well that means the fancy
+nested recursive sustains is a chunk more of a
+pain. But how do we associate buttons with pedals
+otherwise? [203:
+
+Tue Aug 22 11:16:41 2023 We do have some panel
+walking we do already though right?[204:
+
+Tue Aug 22 11:23:59 2023 Mostly we walk the panels
+just to render the buttons. But we could certainly
+do a pass after loading to set up 'containers' for
+each Button. Like where there's a debugging report
+right after everything's loaded.[205:
+
+Tue Aug 22 11:30:38 2023 In StreamDack.__init__
+[206:
+
+Tue Aug 22 11:37:10 2023 Hmm,
+Panel.walkPanelsList(..) skips panels that aren't
+visible. Not exactly what we want for
+button-container-setting. Maybe need a separate
+walker for this.[207:
+
+Tue Aug 22 16:37:43 2023 OK so it looks like we're
+visiting all the buttons with a list of their
+parents.. just not doing anything with that yet..
+
+Actually I guess we're just visiting button names.
+Let's try to dereference there..[208:
+
+Tue Aug 22 16:57:56 2023 OK now func gets the
+actual buttons.
+
+About time to start cooking here.
+
+:208]
+
+:207]
+
+:206]
+
+:205]
+
+:204]
+
+:203]
+
+:202]
+
+:201]
+:200]
+
+:199][197:
 
 Mon Aug 21 16:56:42 2023 Hour screen blanker just
 fired.. Does that seem right?[198:
@@ -2376,3 +2472,133 @@ We should commit.
 :184]
 
 :183]
+[209:
+
+Tue Aug 22 23:04:38 2023 OK let's get the buttons
+knowing where they are.
+
+Note we probably need to support buttons being in
+multiple places as once, so we'll need a list of
+parents or something.
+[210:
+
+Wed Aug 23 00:51:24 2023 OK I think buttons now
+have a list of their parents. With like:
+ ..
+    But x40 parents now ['selectPanel']
+    But x parents now ['xl', 't2sdayRight', 'selectPanel']
+ ..
+
+So now I think we want a Button method for
+'sustainable releasing' that searches up all the
+parent lists looking for the first Panel that says
+  Panel.sustaining == True
+and if we find one we stick ourselves there. If we
+don't, we go ahead and run the release actions.
+
+We want a map and a list there too, so we can
+release in order when the sustain ends? Probably. 
+
+:210]
+
+:209]
+[211:
+
+Wed Aug 23 09:29:53 2023 OK we have new code for
+sustaining and releasing buttons but we can't test
+it until we make code for setting and releasing a
+sustain. Did we settle on a syntax for that?
+[212:
+
+Wed Aug 23 09:33:00 2023 Well :199: offers just
+
+    [button.pedal1]
+      sustains=main   # or [main]
+
+which seems like it has the recurso problem since
+pedal1 needs to be contained by some panel to be
+bound to an actual key. So we probably
+special-case the code we just wrote to divert
+sustain buttons to their own processing?
+
+A second issue is that syntax hardcodes the
+press=start sustaining/release=stop sustaining
+relationship, when one could perhaps imagine
+wanting a press-to-release pedal.
+
+Could have a 
+
+    [button.pedal1]
+      releases=main   # or [main]
+
+keyword as well? Or just make a flag?
+
+    [button.pedal1]
+      sustainer=True
+      press=[ [sustain, main], [release, alt] ]
+      release=[ [release, main], [sustain, alt] ]
+
+or
+      press=[ [sustain, main, True], [sustain, alt, False] ]
+      release=[ [sustain, main, False], [sustain, alt, True] ]
+
+where the sustainer flag basically means "don't do
+sustain processing on this button itself"
+
+Something like that would be pretty foggen
+general. Could even mix sustain and non-sustain
+actions.. What happens if someone does a sustain
+action without setting the sustainer flag? WTFK
+[213:
+
+Wed Aug 23 10:01:19 2023 I guess it would be more
+like
+
+      press=[ [action, sustain, main], [action, release, alt] ]
+      release=[ [action, release, main], [action, sustain, alt] ]
+
+to avoid messing up the action code.
+
+Well let's give it a shot.
+
+:213]
+
+:212]
+:211]
+[214:
+
+Wed Aug 23 10:45:52 2023 The sustain pedal is
+working! Now I'm instantly wanting: For popups at
+least, we'd like to raise them to the top of
+ts-POPUPS as well as show/hide them. Is that even
+part of the obs websocket protocol?
+
+[215:
+
+Wed Aug 23 11:06:12 2023 According to a YTer
+there's a ReorderSceneItems websocket command, but
+you have to list all the items in the scene for it
+to work - says there's no move-to-top equivalent
+
+[216:
+
+Wed Aug 23 11:14:51 2023 Can we call an lua or
+python script from a websocket command?
+
+:216]
+
+:215]
+
+:214]
+[217:
+
+Sat Sep  9 23:18:59 2023 Starting a new notes file
+for a run at incorporating obsws_python so we can
+talk directly to obs via a two-way persistent cxn.
+[218:
+
+Sat Sep  9 23:32:43 2023 Moved to
+202309092320-obsdackl-notes.txt 
+
+:218]
+:217]
