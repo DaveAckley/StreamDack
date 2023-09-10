@@ -60,7 +60,7 @@ class DimScreenEvent(Event):
     def setBrightnessPercent(self,pct):
         decks = self.sda.decks
         decks.setAllDecksBrightness(pct);
-        print(f'brightness now {pct}')
+        #print(f'brightness now {pct}')
 
 class ClockEvent(Event):
 
@@ -80,6 +80,24 @@ class SetImageEvent(Event):
         
     def run(self,eq,now,dead):
         print("SETIM ",self,now)
+
+class SetSustainEvent(Event):
+    Event.registerSubclass('sustain',lambda sda,type,panelname: SetSustainEvent(sda,type,panelname))
+    Event.registerSubclass('release',lambda sda,type,panelname: SetSustainEvent(sda,type,panelname))
+    
+    def __init__(self,sda,name,panel):
+        super().__init__(sda,name)
+        self.panelname = panel
+        self.sustaining = name == 'sustain'
+        print(f"SUSTAINEV {panel} {name}")
+
+    def run(self,eq,now,dead):
+        panel = Panel.getPanelOrNone(self.panelname)
+        if not panel:
+            print(f"WARNING: Unknown panel '{self.panelname}' in {self}");
+            return
+        print(f"runSSEV {self}")
+        panel.setSustaining(self.sustaining)
 
 class SetVisibleEvent(Event):
     Event.registerSubclass('show',lambda sda,type,panelname: SetVisibleEvent(sda,type,panelname))

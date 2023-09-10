@@ -34,7 +34,7 @@ class StreamDack:
         self.decks = Decks.Decks(self,self.getRequiredSection('deck'))      # Check for required section early
         self.actions = Action.Actions(self,self.getOptionalSection('action'))
 
-        Panel.Panel.configurePanels(self.screen,self.getRequiredSection('panel')) # Check for required section early
+        Panel.Panel.configurePanels(self,self.screen,self.getRequiredSection('panel')) # Check for required section early
         def reportPanel(spos,panel,arg):
             arg['count'] += 1
             print(str(arg['count']),spos,"WP:"+repr(panel))
@@ -42,7 +42,14 @@ class StreamDack:
         Panel.Panel.walkPanels(reportPanel,{'count' : 0})
         self.screen.configureArrays(self.decks)
         e = Event.Event.makeEvent(self,['action','setimage','layoutT2sday',"t2img/foo.png"])
-        #print("SLFKKLFD",e)
+        print("SLFKKLFD",e)
+
+        # def demoButtonsVisitor(but,parents):
+        #     print(f"{but}'s parents are {parents}")
+        # Panel.Panel.visitButtons(demoButtonsVisitor)
+        def setButtonParentVisitor(but,parents):
+            but.addParent(parents[-1])
+        Panel.Panel.visitButtons(setButtonParentVisitor)
 
     def addBinDir(self,path):
         epath = os.path.expanduser(path)

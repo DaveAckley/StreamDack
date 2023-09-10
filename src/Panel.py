@@ -14,6 +14,23 @@ class Panel:
         cls.walkPanelsList((0,0),func,cls.toppanels,arg)
 
     @classmethod
+    def visitButtons(cls, func):     # func(button,parents) 
+        for name in cls.toppanels:
+            panel = cls.panelmap[name]
+            panel.visitButtonsHelper(func,[])
+
+    def visitButtonsHelper(self,func,parents):
+        parents.append(self)
+        for y,row in enumerate(self.buttons):
+            for x,butname in enumerate(row):
+                but = self.sda.buttons.getButton(butname)
+                func(but,parents)
+        for name in self.kids: 
+            panel = Panel.panelmap[name]
+            panel.visitButtonsHelper(func,parents)
+        parents.pop(-1)
+
+    @classmethod
     def walkPanelsList(cls, spos, func, kids, arg):
         for name in kids: 
             panel = cls.panelmap[name]
@@ -25,12 +42,12 @@ class Panel:
             cls.walkPanelsList(newspos, func, panel.kids, arg)
 
     @classmethod
-    def configurePanels(cls, screen, panelsect):
+    def configurePanels(cls, sda, screen, panelsect):
         cls.screen = screen
         def makePanel(name,attrs):
             #print("MPATR "+name+ " " + str(attrs))
             if name not in cls.panelmap:
-                panel = Panel(name, None)
+                panel = Panel(name, sda, None)
                 panel.kids = []
                 panel.kidmap = {} # kidname -> kids index
                 cls.panelmap[name] = panel
@@ -47,7 +64,7 @@ class Panel:
                 panel = cls.panelmap[name]
                 par = attrs['parent']
                 if par not in cls.panelmap:
-                    assert(False,f"Unknown parent '{par}' in Panel '{name}")
+                    assert False, f"Unknown parent '{par}' in Panel '{name}"
                 parent = cls.panelmap[par]
                 if name not in parent.kidmap:
                     idx = len(parent.kids)
@@ -117,8 +134,9 @@ class Panel:
 
         #print("CFGPNLPK: "+str(cls.panelmap))
 
-    def __init__(self, name, cfg):
+    def __init__(self, name, sda, cfg):
         self.name = name
+        self.sda = sda
         self.label = name
         self.type = 'normal'    # or 'radio' or ..?
         self.pos = (0,0)
@@ -128,12 +146,46 @@ class Panel:
         self.kidmap = {}
         self.buttons = []
         self.parent = None
+        self.sustainedMap = {}     # map of currently sustained buttons
+        self.sustainedList = []    # list of currently sustained buttons in release order
+        self.sustaining = False # True if this panel is currently sustaining
 
     def __str__(self):
         return str(self.__class__.__module__) + "." + str(self.__class__.__name__) + "" + str(self.__dict__)
 
     def __repr__(self):
-        return f"[{self.name}:{self.size[0]}x{self.size[1]}@{self.pos}]"
+        return f"{self.name}({self.size[0]}x{self.size[1]}@{self.pos})"
+
+    def setSustaining(self,onoff):
+        if not onoff:
+            self.releaseSustains()
+        else:
+            self.sustaining = True
+
+    def sustainsButton(self,button,visitedPanels):
+        if self.name in visitedPanels:
+            return False
+        visitedPanels[self.name] = True
+        if self.sustaining:
+            return self.sustainButton(button)
+        parent = Panel.getPanelOrNone(self.parent)
+        if parent:
+            return parent.sustainsButton(button,visitedPanels)
+
+    def sustainButton(self,button):
+        bname = button.name
+        if bname not in self.sustainedMap:
+            self.sustainedMap[bname] = button
+            self.sustainedList.append(bname)
+        return True
+
+    def releaseSustains(self):
+        self.sustaining = False
+        for bname in self.sustainedList:
+            button = self.sustainedMap[bname]
+            button.sustainOrRelease()
+        self.sustainedMap = {}
+        self.sustainedList = []
 
     def renderButtons(self, screen, spos, arg):
         #print("RNBUT",self,spos,arg,self.buttons)

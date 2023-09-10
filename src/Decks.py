@@ -69,7 +69,7 @@ class Decks:
         for index, deck in enumerate(self.streamdecks):
             if not deck.is_visual():
                 continue
-            print(f'{deck} brightness {percent}')
+            #print(f'{deck} brightness {percent}')
             deck.set_brightness(percent)
         
     def initDecks(self):

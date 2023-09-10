@@ -37,7 +37,19 @@ class Button:
         self.onpress = cfg.get('press',[])       # list of Action 
         #print("BUTIN",name,cfg,self.onpress)
         self.onrelease = cfg.get('release',[])   # list of Action 
+
+        self.sustainer = cfg.get('sustainer',False)        # set True for sustain buttons, or WTFK
+        
         self.count = 0          # ++ on press, -- on release
+        self.parentMap = {}     # panelName->panel that mention this Button
+        self.parentList = []    # panelNames that contain this Button in visitation order
+
+    def addParent(self,parent):
+        pname = parent.name
+        if pname not in self.parentMap:
+            self.parentMap[pname] = parent
+            self.parentList.append(pname)
+            print(f"But {self.name} parents now {self.parentList}")
 
     def __str__(self):
         return (f'BTN({self.label},{self.labelpos},{self.labelanchor},'
@@ -84,18 +96,35 @@ class Button:
                 return self.failActions(actionlist,depth)
         return True
 
+    def sustainOrRelease(self):
+        visitedPanels = {}
+        for pname in self.parentList:
+            panel = self.parentMap[pname]
+            if panel.sustainsButton(self,visitedPanels):
+                return          # someone took it
+        #print(f"SORB releasing {self.name}")
+        self.runActions(self.onrelease) # noone took it
+
+
     def handleKeyEvent(self,buttonevent,eq,now,dead):
         sda = self.buttons.sda
         sda.EQ.dimmer.wake()
 
         press = buttonevent.newstate
+        #print("BUTTONEVENTEC",self.name,press,self.count,now)
         if press:
             self.count = self.count+1
             if self.count == 1:
+                #print(f"HKE pressing {self.name}")
                 self.runActions(self.onpress)
         else:
             self.count = self.count-1
             if self.count == 0:
-                self.runActions(self.onrelease)
-        #print("BUTTONEVENTEC",self.name,press,self.count,now)
+                if self.sustainer: # don't try to sustain sustainers
+                    #print(f"HKE release sustainer {self.name}")
+                    self.runActions(self.onrelease)
+                else:
+                    #print(f"HKE sustain OR RELEASEO {self.name}")
+                    self.sustainOrRelease()
+
         return True
