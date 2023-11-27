@@ -1,0 +1,210 @@
+{18}  -*-  mode: text; fill-column: 50;  -*-
+[17:
+
+Mon Nov 27 10:28:41 2023 Well, pushing this
+although the relationship of the code and these
+notes is currently unclear..
+
+:17]
+[0:
+
+Sat Sep  9 23:32:33 2023 And here we are. Goal is
+
+(1) Control obs via persistent websocket
+    connection within the StreamDack framework
+(2) Display selected obs state on the SDs
+
+Stretch goal
+(3) Simplify image and clip handling by allowing
+    python code to setup image and clip sources in
+    obs with systematic naming etc.
+
+[1:
+
+Sat Sep  9 23:56:14 2023 And to begin this journey
+we need TODO
+
+[2: Sun Sep 10 00:44:51 2023 OK, commited and now
+on branch 'obsws', so
+DONE :2] - Maybe branch the repo?
+
+[3: Sun Sep 10 01:13:15 2023
+DONE :3] - Get obsws_python loading into StreamDack
+
+[4: Sun Sep 10 01:13:22 2023 
+DONE :4] - Get a ws connection open in StreamDack
+
+[10: Sun Sep 10 10:56:19 2023
+DONE :10] - Demo a button affecting obs via direct cxn
+
+[13: Sun Sep 10 12:43:38 2023
+DONE :13] - Demo receiving an event from obs
+
+ - Come make more to-do
+[16:
+
+Mon Sep 11 10:24:04 2023
+
+ - Make StreamDack survive obs not running or exit
+
+:16]
+:1]
+
+:0]
+[5:
+
+Sun Sep 10 01:22:12 2023 OK so how are we going to
+expose obsws to the config file? Also, how are we
+going to handle the threading?
+
+:5]
+[6:
+
+Sun Sep 10 08:58:42 2023 OK so we have OBSEvent
+with like
+
+    class OBSEvent(ThreadEvent):
+
+        Event.registerSubclass('obs',lambda sda,type,*args: OBSEvent(sda,type,*args))
+
+        def __init__(self,sda,name,*args):
+            super().__init__(sda,name)
+            print("OBE",args)
+            self.args = args
+
+        def threadRun(self,eq,now,dead):
+            print("OBSEvent.threadRun",self.args)
+
+and can say things like
+
+      press=  [action, obs, PRESS, DO, SOMEPIN]
+      release=[action, obs, RELEASE, ZONGO]
+
+and get things like
+
+    OBE ('PRESS', 'DO', 'SOMEPIN')
+    OBSEvent.threadRun ('PRESS', 'DO', 'SOMEPIN')
+    OBE ('RELEASE', 'ZONGO')
+    OBSEvent.threadRun ('RELEASE', 'ZONGO')
+
+so I guess the question is can we really talk to
+obs in threadRun? Is there any obsws doc anywhere? 
+[7:
+
+Sun Sep 10 09:04:26 2023 OK, so 
+
+https://github.com/aatikturk/obsws-python
+
+says:
+
+    Method names for requests match the API calls
+    but snake cased. If a successful call is made
+    with the Request client and the response is
+    expected to contain fields then a response
+    object will be returned. You may then access
+    the response fields as class attributes. They
+    will be snake cased.
+
+[8:
+
+Sun Sep 10 09:12:29 2023 Just ran across this
+note:
+    cl.set_profile_parameter("Output", "FilenameFormatting", "TestFile")
+
+to set the recording file to TestFile.mp4
+[9:
+
+Sun Sep 10 09:14:42 2023 buuuut I also see obs-ws
+doc saying things like
+
+    SetRecordDirectory
+
+    Sets the current directory that the record output writes files to.
+
+        Complexity Rating: 2/5
+        Latest Supported RPC Version: 1
+>>      Added in v5.3.0
+
+while my code prints:
+
+    Ubuntu 20.04.6 LTS
+>>  5.2.3
+    ['OpenSourceProjector', 'GetMonitorList', ..
+
+so I guess I have to be careful.
+
+:9]
+:8]
+
+:7]
+:6]
+[11:
+
+Sun Sep 10 10:56:42 2023 OK let's try to set up a
+callback for like scene change or something. I
+guess we're going to want to turn them into Events
+of some kind?[12:
+
+Sun Sep 10 11:05:23 2023 Let's try to track
+CurrentProgramSceneChanged and print out when that
+happens.. 
+
+:12]
+
+:11]
+[14:
+
+Mon Sep 11 00:37:41 2023 OK so we've got the basic
+ingredients and we need to start thinking about
+what to do with them. Let's start with some wibni.
+
+ - 'Scene buttons', that switch to a scene when
+   you press them, and somehow highlight
+   themselves -- like a yellow border perhaps, or
+   maybe even blinking -- when the corresponding
+   scene is live, regardless of how that came to
+   happen.
+
+ - 'Stack buttons', that automatically display
+   the previously-live scenes, for however many
+   buttons are dedicated to the stack, so that
+   it's easy to return to a previous scene
+
+ - 'Auto clipping', where a directory of images
+   and clips gets somehow autoloaded, with the
+   following steps:
+   = read directory, sort applicable files
+   = autogenerate obs image/media sources for the
+     applicable files, generating source names
+     from the file names
+   = autogenerate buttons with names derived from
+     the files, and generate button images
+     automatically from the files (for static
+     images at least), and auto-fill some declared
+     panel with the generated buttons
+
+[15:
+
+Mon Sep 11 03:15:03 2023 Any other fun wibs?
+
+ - Triggers, where some event received can release
+   an action sequence
+
+ - Macros, where
+
+[defmacro.makeButton
+  params=[FOO, BAR]
+  NAME=['mybutton-',FOO,'-press']
+  body=[button, NAME .. ] #??
+
+then like
+ [macro, makeButton, realFoo, realBarThing]
+
+hmm if param substitution was going to happen
+after tomlikey parsing, which I wanted, params in
+dotted constructions are a problem? Because they
+name a whole sublist or something?
+
+:15]
+
+:14]
