@@ -79,7 +79,7 @@ class Images:
             return image
         image = self.renderButtonImage(fullpath,button,deckinfo)
         self.imagecache[key] = (fullpath,image)
-        print("GETIMGINEW",key,image)
+        #print("GETIMGINEW",key,image)
         return image
 
     # def getImage(self,path,deckinfo):

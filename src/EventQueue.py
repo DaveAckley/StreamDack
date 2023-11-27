@@ -75,7 +75,7 @@ class EventQueue:
                         self.sleep(delta)   # can be interrupted via self.wake()
                     else:
                         event.run(self,t,when)
-                else:
+                elif not isinstance(event,Event.DimScreenEvent):
                     print(f"DROPPING {event}")
 
     async def execute(self,item):

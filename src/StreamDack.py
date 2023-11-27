@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import shutil
 
 import Event
@@ -12,6 +13,7 @@ import Decks
 import Image
 import Button
 import Action
+import OBSWS
 
 class StreamDack:
     def __init__(self):
@@ -26,6 +28,15 @@ class StreamDack:
                 self.addBinDir(id)
         if len(self.bindirs) == 0:
             self.addBinDir("")  # default path 
+
+        self.wsaddress = sda.get('wsaddress',None)
+        self.wsport = sda.get('wsport',4455)
+        self.wspassword = sda.get('wspassword',None)
+
+        self.obsws = None
+        if self.wsaddress:
+            self.obsws = OBSWS.OBSWS(sda,"hewobs")
+            self.EQ.runIn(2,self.obsws)
 
         self.screen = Screen.Screen(self,self.getRequiredSection('screen'))    # Check for required section early
         self.buttons = Button.Buttons(self,self.getRequiredSection('button'))

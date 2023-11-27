@@ -1,11 +1,16 @@
 from abc import ABC, abstractmethod
+from functools import total_ordering
 import threading
 import subprocess
+import gc
 
 from Panel import Panel
 
+@total_ordering
 class Event(ABC):
+    
     classmap = {}
+    objcount = 0
 
     @classmethod
     def registerSubclass(cls,key,func):
@@ -31,6 +36,11 @@ class Event(ABC):
         self.sda = sda
         self.name = name
         self.sched = None
+        Event.objcount += 1
+        self.objnum = Event.objcount
+
+    def __lt__(self, other):
+        return self.objnum < other.objnum
 
     def __str__(self):
         return str(self.__class__.__module__) + "." + str(self.__class__.__name__) + "" + str(self.__dict__)
@@ -44,9 +54,13 @@ class Event(ABC):
 
     
 class DimScreenEvent(Event):
+    def __init__(self,sda,name):
+        super().__init__(sda,name)
+        self.brightness = -1    # Current brightness unset
+        self.delay = 60*60      # default seconds til dim
+        
     def reschedule(self):
-        delay = 60*60
-        self.sda.scheduleEvent(delay,self) # one hour on
+        self.sda.scheduleEvent(self.delay,self) # one hour on
         
     def wake(self):
         self.reschedule();
@@ -56,11 +70,19 @@ class DimScreenEvent(Event):
         self.setBrightnessPercent(0)
         delta = now - dead
         print(f'{dead} executed at {now} delay {delta}')
+        start = eq.now()
+        n = gc.collect()
+        end = eq.now()
+        gctime = end - start
+        print(f'{n} objects collected in {gctime}')
 
     def setBrightnessPercent(self,pct):
-        decks = self.sda.decks
-        decks.setAllDecksBrightness(pct);
-        #print(f'brightness now {pct}')
+        if self.brightness != pct: 
+            print(f'brightness to {pct}')
+            self.brightness = pct
+            decks = self.sda.decks 
+            decks.setAllDecksBrightness(pct)
+
 
 class ClockEvent(Event):
 
@@ -122,9 +144,16 @@ class ThreadEvent(Event):
         pass
 
     def run(self,eq,now,dead):
-        thread = threading.Thread(target=self.threadRun,args=(eq,now,dead))
+        worker = self.threadRun
+        def catch(eq,now,dead):
+            try:
+                #print("LKASLKSDAOAART",self,now)
+                worker(eq,now,dead)
+                #print("FDDDAAANLKASLKSDAOAART",self,now,dead)
+            except Exception as e:
+                print("ZTNDKGOGN",self,e)
+        thread = threading.Thread(target=catch,args=(eq,now,dead))
         thread.start()
-
 
 class SleepEvent(ThreadEvent):
     def threadRun(self,eq,now,dead):
@@ -176,3 +205,26 @@ class ButtonEvent(Event):
         button = buttons.getButton(self.name)
         button.handleKeyEvent(self,eq,now,dead)
 
+class OBSEvent(ThreadEvent):
+
+    Event.registerSubclass('obs',lambda sda,type,*args: OBSEvent(sda,type,*args))
+
+    def __init__(self,sda,name,*args):
+        super().__init__(sda,name)
+        print("OBE",args)
+        l = list(args)
+        self.param = l.pop(0) # or die
+        data = {}
+        while len(l) > 0:
+            key = l.pop(0)
+            val = l.pop(0) if len(l) > 0 else None
+            data[key] = val
+        self.data = data if len(data) > 0 else None
+        
+    def threadRun(self,eq,now,dead):
+        print("OBSEvent.threadRun",self)
+        sda = self.sda
+        ws = sda.obsws
+        print("OBSEvent.threadRun.send",self.param,self.data)
+        resp = ws.sendReq(self.param,self.data)
+        print("OBSEvent.threadRun.resp",resp)
